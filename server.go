@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/codecat/go-libs/log"
-	"github.com/eikarna/gotops"
-	fn "github.com/eikarna/gotps/functions"
-	pkt "github.com/eikarna/gotps/packet"
 	"sync"
+
+	"github.com/codecat/go-libs/log"
+	enet "github.com/eikarna/gotops"
+	clients "github.com/eikarna/gotps/clients"
+	pkt "github.com/eikarna/gotps/packet"
 )
 
 var (
@@ -33,42 +34,26 @@ func main() {
 		// Wait until the next event
 		ev := host.Service(100)
 
-		// Print Server successfully started
 		if ev != nil {
 			once.Do(func() { log.Info("Server Successfully started on 0.0.0.0:%d", GrowtopiaPort) })
-		}
-
-		// Do nothing if we didn't get any event
-		if ev.GetType() == enet.EventNone {
-			continue
 		}
 
 		switch ev.GetType() {
 		case enet.EventConnect: // A new peer has connected
 			log.Info("New peer connected: %s", ev.GetPeer().GetAddress())
-			if pkt.SendPacket(ev.GetPeer(), 1, "") == 1 {
-				fn.SendLogonFail(ev.GetPeer())
-			}
+			clients.OnConnect(ev.GetPeer(), host) //Handle Client OnConnect
 
 		case enet.EventDisconnect: // A connected peer has disconnected
 			log.Info("Peer disconnected: %s", ev.GetPeer().GetAddress())
+			clients.OnDisConnect(ev.GetPeer(), host) //Handle Client OnDisConnect
 
 		case enet.EventReceive: // A peer sent us some data
 			// Get the packet
 			packet := ev.GetPacket()
-
 			// We must destroy the packet when we're done with it
 			defer packet.Destroy()
 
-			// Get the bytes in the packet and handle the packet
-			switch packet.GetData()[0] {
-			// On Connect
-			case 1:
-				{
-					log.Info("Packet Type %d: %s", packet.GetData()[0], pkt.GetMessageFromPacket(packet))
-
-				}
-			// On Change
+			switch packet.GetData()[0] { //Net Message Type
 			case 2:
 				{
 					log.Info("Packet Type %d: %s", packet.GetData()[0], pkt.GetMessageFromPacket(packet))
