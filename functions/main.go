@@ -5,7 +5,7 @@ import (
 )
 
 func SendWorldMenu(peer enet.Peer) {
-	variant.
+
 }
 
 //variants
