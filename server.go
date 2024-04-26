@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/codecat/go-libs/log"
 	"github.com/eikarna/gotops"
+	fn "github.com/eikarna/gotps/functions"
 	pkt "github.com/eikarna/gotps/packet"
 	"sync"
 )
@@ -32,6 +33,7 @@ func main() {
 		// Wait until the next event
 		ev := host.Service(100)
 
+		// Print Server successfully started
 		if ev != nil {
 			once.Do(func() { log.Info("Server Successfully started on 0.0.0.0:%d", GrowtopiaPort) })
 		}
@@ -44,14 +46,8 @@ func main() {
 		switch ev.GetType() {
 		case enet.EventConnect: // A new peer has connected
 			log.Info("New peer connected: %s", ev.GetPeer().GetAddress())
-			/*packet := ev.GetPacket()
-			defer packet.Destroy()
-			log.Info("Got Login Packet from %s: %s", ev.GetPeer().GetAddress(), GetMessageFromPacket(packet))*/
 			if pkt.SendPacket(ev.GetPeer(), 1, "") == 1 {
-				pkt.SendPacket(ev.GetPeer(), 3, "action|play_sfx\nfile|audio/piano_nice.wav\ndelayMS|0\n")
-				pkt.SendPacket(ev.GetPeer(), 3, "action|log\nmsg|`2Hello World from gotops!")
-				pkt.SendPacket(ev.GetPeer(), 3, "action|set_url\nurl|https://github.com/eikarna/gotops\nlabel|GOTOPS Repo")
-				pkt.SendPacket(ev.GetPeer(), 3, "action|logon_fail\n")
+				fn.SendLogonFail(ev.GetPeer())
 			}
 
 		case enet.EventDisconnect: // A connected peer has disconnected
