@@ -9,19 +9,25 @@ import (
 	fn "github.com/eikarna/gotps/functions"
 	items "github.com/eikarna/gotps/items"
 	pkt "github.com/eikarna/gotps/packet"
+	tankpacket "github.com/eikarna/gotps/packet/TankPacket"
 	"github.com/eikarna/gotps/worlds"
 )
 
-func OnConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo) {
+var (
+	SpawnX int
+	SpawnY int
+)
+
+func OnConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalPeer []enet.Peer) {
 	log.Info("New Client Connected %s", peer.GetAddress().String())
 	pkt.SendPacket(peer, 1, "") //hello response
 }
 
-func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo) {
+func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalPeer []enet.Peer) {
 	log.Info("New Client Disconnected %s", peer.GetAddress().String())
 }
 
-func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.ItemInfo) {
+func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.ItemInfo, globalPeer []enet.Peer) {
 	if strings.Contains(text, "requestedName|") {
 		fn.OnSuperMain(peer, items.GetItemHash())
 	} else if len(text) > 6 && text[:6] == "action" {
@@ -42,10 +48,31 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 	log.Info("msg: %v", text)
 }
 
-var (
-	SpawnX int
-	SpawnY int
-)
+func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *items.ItemInfo, globalPeer []enet.Peer) {
+	if len(packet.GetData()) < 3 {
+		return
+	}
+
+	Tank := &tankpacket.TankPacket{}
+	Tank.SerializeFromMem(packet.GetData())
+
+	switch Tank.PacketType {
+	case 0:
+		{ //player movement
+			break
+		}
+	case 3:
+		{ //punch / place
+			break
+		}
+	default:
+		{
+			log.Info("Packet type: %d, val: %d", Tank.PacketType, Tank.Value)
+			break
+		}
+	}
+
+}
 
 func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 
