@@ -25,12 +25,17 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 	if strings.Contains(text, "requestedName|") {
 		fn.OnSuperMain(peer, items.GetItemHash())
 	} else if len(text) > 6 && text[:6] == "action" {
+
 		if strings.HasPrefix(text[7:], "enter_game") {
 			fn.SendWorldMenu(peer)
 		} else if strings.HasPrefix(text[7:], "join_request") {
 			worldName := strings.ToUpper(strings.Split(text[25:], "\n")[0])
 			fn.LogMsg(peer, "Sending you to world (%s) (%d)", worldName, len(worldName))
 			OnEnterGameWorld(peer, host, worldName)
+		} else if strings.HasPrefix(text[7:], "quit_to_exit") {
+			fn.SendWorldMenu(peer)
+		} else if strings.HasPrefix(text[7:], "quit") {
+			peer.DisconnectLater(0)
 		}
 	}
 
@@ -71,13 +76,12 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 		case 6:
 			{
 				worldPacket[extraDataPos+8] = 1 //block types
-				binary.LittleEndian.PutUint16(worldPacket[extraDataPos+4:], uint16(len(world.Tiles[i].Label)))
+				binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(len(world.Tiles[i].Label)))
 				copy(worldPacket[extraDataPos+11:], []byte(world.Tiles[i].Label))
+
 				SpawnX = (i % int(world.SizeX)) * 32
 				SpawnY = (i / int(world.SizeX)) * 32
 				extraDataPos += 4 + len(world.Tiles[i].Label)
-				totalPacketLen += 4 + len(world.Tiles[i].Label)
-				fn.LogMsg(peer, "x: %d, y: %d", SpawnX, SpawnY)
 			}
 		default:
 			{
@@ -86,7 +90,6 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 		}
 
 		extraDataPos += 8
-		totalPacketLen += 8
 	}
 
 	packet, err := enet.NewPacket(worldPacket, enet.PacketFlagReliable)
