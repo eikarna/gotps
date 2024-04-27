@@ -36,6 +36,7 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 
 		if strings.HasPrefix(text[7:], "enter_game") {
 			fn.SendWorldMenu(peer)
+			fn.LogMsg(peer, "Where would you like to go? (`w%d`` Online)", host.ConnectedPeers())
 		} else if strings.HasPrefix(text[7:], "join_request") {
 			worldName := strings.ToUpper(strings.Split(text[25:], "\n")[0])
 			fn.LogMsg(peer, "Sending you to world (%s) (%d)", worldName, len(worldName))
@@ -63,10 +64,12 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 	switch Tank.PacketType {
 	case 0:
 		{ //player movement
+			fn.LogMsg(peer, "[Movement] X:%d, Y:%d", Tank.X, Tank.Y)
 			break
 		}
 	case 3:
 		{ //punch / place
+			fn.LogMsg(peer, "[Punch/Place] X:%d, Y:%d", Tank.PunchX, Tank.PunchY)
 			break
 		}
 	default:
