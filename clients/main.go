@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	SpawnX int
-	SpawnY int
+	SpawnX        int
+	SpawnY        int
+	RequestedName string
 )
 
 func OnConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalPeer []enet.Peer) {
@@ -30,6 +31,7 @@ func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalP
 func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.ItemInfo, globalPeer []enet.Peer) {
 	if strings.Contains(text, "requestedName|") {
 		fn.OnSuperMain(peer, items.GetItemHash())
+		RequestedName = strings.Split(strings.Split(text, "\n")[0], "|")[1]
 	} else if len(text) > 6 && text[:6] == "action" {
 
 		if strings.HasPrefix(text[7:], "enter_game") {
@@ -42,6 +44,8 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 			fn.SendWorldMenu(peer)
 		} else if strings.HasPrefix(text[7:], "quit") {
 			peer.DisconnectLater(0)
+		} else {
+			fn.LogMsg(peer, "Unhandled Action Packet type: %s", text[7:])
 		}
 	}
 
@@ -125,5 +129,5 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 	}
 	peer.SendPacket(packet, 0)
 
-	fn.OnSpawn(peer, 1, 1, int32(SpawnX), int32(SpawnY), "`6@Haikal_999", "id", false, true, true, true)
+	fn.OnSpawn(peer, 1, 1, int32(SpawnX), int32(SpawnY), "`6@"+RequestedName, "id", false, true, true, true)
 }
