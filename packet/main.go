@@ -2,13 +2,15 @@ package packet
 
 import (
 	"encoding/binary"
-	"github.com/eikarna/gotops"
+
+	enet "github.com/eikarna/gotops"
 )
 
 // By: Haikal (Kipas)
 func GetMessageFromPacket(packet enet.Packet) string {
-	packet.GetData()[len(packet.GetData())-1] = 0
-	return string(packet.GetData()[4:])
+	gamePacket := packet.GetData()
+	copy(gamePacket[len(gamePacket)-1:], []byte{0})
+	return string(gamePacket[4:])
 }
 
 // By: Haikal (Kipas)
@@ -21,7 +23,7 @@ func SendPacket(peer enet.Peer, gameMessageType int32, strData string) int {
 		copy(netPacket[4:4+len(strData)], []byte(strData))
 	}
 	netPacket[4+len(strData)] = 0
-	packet, err := enet.NewPacket(netPacket, enet.PacketFlagReliable)
+	packet, err := enet.NewPacket(netPacket, enet.PacketFlagReliable, len(netPacket))
 	if err != nil {
 		panic(err)
 	}

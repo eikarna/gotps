@@ -4,8 +4,10 @@ import (
 	"sync"
 
 	"github.com/codecat/go-libs/log"
+
 	enet "github.com/eikarna/gotops"
 	clients "github.com/eikarna/gotps/clients"
+	"github.com/eikarna/gotps/items"
 	pkt "github.com/eikarna/gotps/packet"
 )
 
@@ -17,7 +19,6 @@ var (
 func main() {
 	// Initialize enet
 	enet.Initialize()
-
 	// Create a host listening on 0.0.0.0:17091
 	host, err := enet.NewHost(enet.NewListenAddress(GrowtopiaPort), 1024, 1, 0, 0)
 	if err != nil {
@@ -28,7 +29,10 @@ func main() {
 	// GTPS Support
 	host.EnableChecksum()
 	host.CompressWithRangeCoder()
-
+	itemInfo, err := items.SerializeItemsDat("items.dat")
+	if err != nil {
+		log.Error("Itemsdat: %s", err.Error())
+	}
 	// The event loop
 	for true {
 		// Wait until the next event
@@ -39,13 +43,20 @@ func main() {
 		}
 
 		switch ev.GetType() {
-		case enet.EventConnect: // A new peer has connected
-			log.Info("New peer connected: %s", ev.GetPeer().GetAddress())
-			clients.OnConnect(ev.GetPeer(), host) //Handle Client OnConnect
-
-		case enet.EventDisconnect: // A connected peer has disconnected
-			log.Info("Peer disconnected: %s", ev.GetPeer().GetAddress())
-			clients.OnDisConnect(ev.GetPeer(), host) //Handle Client OnDisConnect
+		case enet.EventNone:
+			{
+				break
+			}
+		case enet.EventConnect:
+			{
+				clients.OnConnect(ev.GetPeer(), host, itemInfo) //Handle Client OnConnect
+				break
+			}
+		case enet.EventDisconnect:
+			{
+				clients.OnDisConnect(ev.GetPeer(), host, itemInfo) //Handle Client OnDisConnect
+				break
+			}
 
 		case enet.EventReceive: // A peer sent us some data
 			// Get the packet
@@ -56,24 +67,25 @@ func main() {
 			switch packet.GetData()[0] { //Net Message Type
 			case 2:
 				{
-					log.Info("Packet Type %d: %s", packet.GetData()[0], pkt.GetMessageFromPacket(packet))
+					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo)
+					break
 				}
 			case 3:
 				{
-					log.Info("Packet Type %d: %s", packet.GetData()[0], pkt.GetMessageFromPacket(packet))
+					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo)
+					break
 				}
 			default:
 				{
-					log.Error("Unhandled type packet: %d, with data: %s", packet.GetData()[0], pkt.GetMessageFromPacket(packet))
+					log.Error("Unhandled type packet: %d", packet.GetData()[0])
+					break
 				}
 			}
-
+			break
 		}
 	}
 
 	// Destroy the host when we're done with it
 	host.Destroy()
-
-	// Uninitialize enet
 	enet.Deinitialize()
 }

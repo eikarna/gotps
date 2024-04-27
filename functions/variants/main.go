@@ -47,7 +47,7 @@ func (v *Variant) InsertUnsignedInt(a1 uint32) {
 	copy(data, v.packetData)
 	data[v.len] = byte(v.index)
 	data[v.len+1] = 0x5
-	binary.LittleEndian.PutUint32(data[v.len+2:], uint32(a1))
+	binary.LittleEndian.PutUint32(data[v.len+2:], a1)
 	v.index++
 	v.packetData = data
 	v.len += 2 + 4
@@ -103,7 +103,7 @@ func (v *Variant) InsertString(a1 string) {
 }
 
 func (v *Variant) Send(peer enet.Peer) {
-	packet, err := enet.NewPacket(v.packetData, enet.PacketFlagReliable)
+	packet, err := enet.NewPacket(v.packetData, enet.PacketFlagReliable, len(v.packetData))
 	if err != nil {
 		panic(err)
 	}
