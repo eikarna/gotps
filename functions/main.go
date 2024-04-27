@@ -28,6 +28,41 @@ func SendWorldMenu(peer enet.Peer) {
 	variant.Send(peer)
 }
 
+// TODO:
+func SendInventory(peer enet.Peer) {
+
+}
+
+func ConsoleMsg(a string, peer enet.Peer) {
+	variant := variant.NewVariant(0, -1)
+	variant.InsertString("OnConsoleMessage")
+	variant.InsertString(a)
+	variant.Send(peer)
+}
+
+func BroadcastConsoleMsg(a string, host enet.Host) {
+	variant := variant.NewVariant(0, -1)
+	variant.InsertString("OnConsoleMessage")
+	variant.InsertString(a)
+	variant.SendBroadcast(host)
+}
+
+func TalkBubble(a string, b uint32, peer enet.Peer) {
+	variant := variant.NewVariant(0, -1)
+	variant.InsertString("OnTalkBubble")
+	variant.InsertUnsignedInt(b)
+	variant.InsertString(a)
+	variant.Send(peer)
+}
+
+func BroadcastTalkBubble(a string, b uint32, host enet.Host) {
+	variant := variant.NewVariant(0, -1)
+	variant.InsertString("OnTalkBubble")
+	variant.InsertUnsignedInt(b)
+	variant.InsertString(a)
+	variant.SendBroadcast(host)
+}
+
 func OnSuperMain(peer enet.Peer, itemHash uint32) {
 
 	variant := variant.NewVariant(0, -1)

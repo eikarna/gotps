@@ -109,3 +109,11 @@ func (v *Variant) Send(peer enet.Peer) {
 	}
 	peer.SendPacket(packet, 0)
 }
+
+func (v *Variant) SendBroadcast(host enet.Host) {
+	packet, err := enet.NewPacket(v.packetData, enet.PacketFlagReliable)
+	if err != nil {
+		panic(err)
+	}
+	host.BroadcastPacket(packet, 0)
+}

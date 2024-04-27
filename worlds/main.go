@@ -13,15 +13,20 @@ type Tiles struct {
 	IntData int32
 }
 
-type World struct {
-	Name string
+type Admins struct {
+	AdminUid int32
+	Name     string
+}
 
+type World struct {
+	Name       string
 	OwnerUid   int32
+	PlayersIn  int32
 	SizeX      int32
 	SizeY      int32
 	TotalTiles int32
-
-	Tiles []Tiles
+	Admins     []Admins
+	Tiles      []Tiles
 }
 
 var (
@@ -55,7 +60,7 @@ func GenerateWorld(name string, sizeX int32, sizeY int32) *World {
 			tile.Fg = 8
 		}
 		if i == 2400+randomPosDoor {
-			tile.Label = "GolangPS EXIT"
+			tile.Label = "EXIT"
 			tile.Fg = 6
 		}
 		if i == 2500+randomPosDoor {

@@ -10,13 +10,13 @@ import (
 	items "github.com/eikarna/gotps/items"
 	pkt "github.com/eikarna/gotps/packet"
 	tankpacket "github.com/eikarna/gotps/packet/TankPacket"
+	player "github.com/eikarna/gotps/players"
 	"github.com/eikarna/gotps/worlds"
 )
 
 var (
-	SpawnX        int
-	SpawnY        int
-	RequestedName string
+	SpawnX int
+	SpawnY int
 )
 
 func OnConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalPeer []enet.Peer) {
@@ -31,16 +31,57 @@ func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalP
 func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.ItemInfo, globalPeer []enet.Peer) {
 	if strings.Contains(text, "requestedName|") {
 		fn.OnSuperMain(peer, items.GetItemHash())
-		RequestedName = strings.Split(strings.Split(text, "\n")[0], "|")[1]
+		lines := strings.Split(text, "\n")
+
+		// Iterate over the lines to find the requestedName key
+		for _, line := range lines {
+			// Split each line into key and value parts
+			parts := strings.Split(line, "|")
+			// Check if the key is "requestedName"
+			if len(parts) != 2 {
+				continue
+			}
+			switch parts[0] {
+			case "requestedName":
+				{
+					player.Players.RequestedName = parts[1]
+					break
+				}
+			case "country":
+				{
+					player.Players.Country = parts[1]
+				}
+			default:
+				{
+					continue
+				}
+			}
+		}
+		//RequestedName = strings.Split(strings.Split(text, "\n")[0], "|")[1]
+		//NetID = strings.Split(strings.Split(text, "\n"))
 	} else if len(text) > 6 && text[:6] == "action" {
 
 		if strings.HasPrefix(text[7:], "enter_game") {
 			fn.SendWorldMenu(peer)
+			fn.SendInventory(peer)
 			fn.LogMsg(peer, "Where would you like to go? (`w%d`` Online)", host.ConnectedPeers())
 		} else if strings.HasPrefix(text[7:], "join_request") {
 			worldName := strings.ToUpper(strings.Split(text[25:], "\n")[0])
 			fn.LogMsg(peer, "Sending you to world (%s) (%d)", worldName, len(worldName))
 			OnEnterGameWorld(peer, host, worldName)
+		} else if strings.HasPrefix(text[7:], "input") {
+			/*CurW, err := worlds.GetWorld(player.Players.CurrentWorld)
+			if err != nil {
+				log.Error("Error World:", err)
+			}
+			NetID := uint32(CurW.PlayersIn)
+			log.Info("Players In: [uint32: %d], [int32: %d]", uint32(CurW.PlayersIn), CurW.PlayersIn)*/
+			UserText := strings.Split(strings.Split(text[7:], "\n")[1], "|")[2]
+			log.Info("User Input Text: %s", UserText)
+			packet := "CP:_PL:0_OID:_CT:[W]_ `6<`w" + player.Players.RequestedName + "`6> "
+			packet += UserText
+			fn.ConsoleMsg(packet, peer)
+			fn.TalkBubble(UserText, 1, peer)
 		} else if strings.HasPrefix(text[7:], "quit_to_exit") {
 			fn.SendWorldMenu(peer)
 		} else if strings.HasPrefix(text[7:], "quit") {
@@ -64,13 +105,22 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 	switch Tank.PacketType {
 	case 0:
 		{ //player movement
+			player.Players.PosX = Tank.X
+			player.Players.PosY = Tank.Y
 			fn.LogMsg(peer, "[Movement] X:%d, Y:%d", Tank.X, Tank.Y)
 			break
 		}
 	case 3:
 		{ //punch / place
+			player.Players.PunchX = Tank.PunchX
+			player.Players.PunchY = Tank.PunchY
 			fn.LogMsg(peer, "[Punch/Place] X:%d, Y:%d", Tank.PunchX, Tank.PunchY)
 			break
+		}
+	case 18:
+		{
+			// Break
+			fn.LogMsg(peer, "[Break] X: %d, Y:%d", Tank.PunchX, Tank.PunchY)
 		}
 	default:
 		{
@@ -131,6 +181,11 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 		panic(err)
 	}
 	peer.SendPacket(packet, 0)
-
-	fn.OnSpawn(peer, 1, 1, int32(SpawnX), int32(SpawnY), "`6@"+RequestedName, "id", false, true, true, true)
+	player.Players.CurrentWorld = name
+	if int(world.PlayersIn) < 1 {
+		world.PlayersIn = 1
+	}
+	for i := 0; i < int(world.PlayersIn); i++ {
+		fn.OnSpawn(peer, 1, int32(i), int32(SpawnX), int32(SpawnY), "`6@"+player.Players.RequestedName, player.Players.Country, false, true, true, true)
+	}
 }
