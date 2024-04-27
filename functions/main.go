@@ -57,7 +57,7 @@ func OnSpawn(peer enet.Peer, netid int32, userid int32, posX int32, posY int32, 
 	spawnAvatar += "mstate|" + utils.BoolToIntString(mstate) + "\n"  //1 0
 	spawnAvatar += "smstate|" + utils.BoolToIntString(smsate) + "\n" //1 0
 	if local {
-		spawnAvatar += "\nonlineID|\ntype|local\n"
+		spawnAvatar += "onlineID|\ntype|local\n"
 	}
 
 	variant := variant.NewVariant(0, -1)

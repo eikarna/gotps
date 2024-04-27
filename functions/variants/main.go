@@ -103,7 +103,7 @@ func (v *Variant) InsertString(a1 string) {
 }
 
 func (v *Variant) Send(peer enet.Peer) {
-	packet, err := enet.NewPacket(v.packetData, enet.PacketFlagReliable, len(v.packetData))
+	packet, err := enet.NewPacket(v.packetData, enet.PacketFlagReliable)
 	if err != nil {
 		panic(err)
 	}

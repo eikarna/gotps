@@ -55,7 +55,7 @@ func GenerateWorld(name string, sizeX int32, sizeY int32) *World {
 			tile.Fg = 8
 		}
 		if i == 2400+randomPosDoor {
-			tile.Label = "GolangPS EXIT"
+			// tile.Label = "GolangPS EXIT"
 			tile.Fg = 6
 		}
 		if i == 2500+randomPosDoor {

@@ -23,7 +23,7 @@ func SendPacket(peer enet.Peer, gameMessageType int32, strData string) int {
 		copy(netPacket[4:4+len(strData)], []byte(strData))
 	}
 	netPacket[4+len(strData)] = 0
-	packet, err := enet.NewPacket(netPacket, enet.PacketFlagReliable, len(netPacket))
+	packet, err := enet.NewPacket(netPacket, enet.PacketFlagReliable)
 	if err != nil {
 		panic(err)
 	}

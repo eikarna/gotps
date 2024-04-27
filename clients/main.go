@@ -89,7 +89,7 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 		totalPacketLen += 8
 	}
 
-	packet, err := enet.NewPacket(worldPacket, enet.PacketFlagReliable, totalPacketLen)
+	packet, err := enet.NewPacket(worldPacket, enet.PacketFlagReliable)
 	if err != nil {
 		panic(err)
 	}
