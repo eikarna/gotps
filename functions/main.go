@@ -13,16 +13,74 @@ import (
 	"strconv"
 )
 
+var ListActiveWorld = make(map[string]int)
+
+// TODO:
+func SendItemsData(peer enet.Peer) {
+
+}
+
+func OnRemove(peer enet.Peer, netid int) {
+	variant := variant.NewVariant(0, -1)
+	variant.InsertString("OnRemove")
+	variant.InsertString("netID|" + strconv.Itoa(netid) + "\n")
+	variant.Send(peer)
+}
+
+func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket) {
+	player.PlayerMap[peer].PunchX = Tank.PunchX
+	player.PlayerMap[peer].PunchY = Tank.PunchY
+	testt := &tankpacket.TankPacket{
+		PacketType:     3,
+		NetID:          player.PlayerMap[peer].NetID,
+		CharacterState: Tank.CharacterState,
+		Value:          Tank.Value,
+		X:              player.PlayerMap[peer].PosX,
+		Y:              player.PlayerMap[peer].PosY,
+		XSpeed:         Tank.XSpeed,
+		YSpeed:         Tank.YSpeed,
+		PunchX:         player.PlayerMap[peer].PunchX,
+		PunchY:         player.PlayerMap[peer].PunchY,
+	}
+	bbb := testt.Serialize(56, true)
+	aaa, err := enet.NewPacket(bbb, enet.PacketFlagReliable)
+	if err != nil {
+		log.Error("Error Packet 3:", err)
+	}
+	for _, currentPeer := range player.PlayerMap {
+		if player.PlayerMap[peer].CurrentWorld == currentPeer.CurrentWorld {
+			currentPeer.Peer.SendPacket(aaa, 0)
+		} else {
+			continue
+		}
+	}
+	LogMsg(peer, "[Punch/Place] X:%d, Y:%d, Value:%d, NetID:%d", Tank.PunchX, Tank.PunchY, Tank.Value, Tank.NetID)
+}
+
 func SendWorldMenu(peer enet.Peer) {
 	var world_packet string
+	// Add World Start as default
+	ListActiveWorld["START"] = 255
 	world_packet += "add_filter|\n"
-	world_packet += "add_heading|Private Source<ROW2>|\n"
-	world_packet += "add_floater|GOLANG|GOLANGPS|0|0.5|3529161471\n"
+	world_packet += "add_heading|Top Worlds<ROW2>|\n"
+	for listworld, count := range ListActiveWorld {
+		if count > 0 {
+			if listworld == "START" {
+				world_packet += "add_floater|" + listworld + "|" + listworld + "|" + strconv.Itoa(count) + "|0.8|3529161471\n"
+
+			} else {
+				world_packet += "add_floater|" + listworld + "|" + listworld + "|" + strconv.Itoa(count) + "|0.5|3529161471\n"
+			}
+		} else {
+			delete(ListActiveWorld, listworld)
+		}
+	}
 	world_packet += "add_heading|Credits<CR>|\n"
 	world_packet += "add_floater|KIPASGTS|KIPASGTS|0|0.5|2147418367\n"
 	world_packet += "add_floater|EIKARNA|EIKARNA|0|0.5|2147418367\n"
 	world_packet += "add_floater|AKBARDEV|AKBARDEV|0|0.5|2147418367\n"
 	world_packet += "add_floater|TEAMNEVOLUTION|TEAMNEVOLUTION|0|0.5|2147418367\n"
+	world_packet += "add_heading|Based On: https://github.com/eikarna/gotops<CR>|\n"
 
 	variant := variant.NewVariant(0, -1) //delay netid
 	variant.InsertString("OnRequestWorldSelectMenu")
@@ -30,8 +88,10 @@ func SendWorldMenu(peer enet.Peer) {
 	variant.Send(peer)
 }
 
-// TODO:
 func SendInventory(pl player.Player, peer enet.Peer) {
+	if player.NotSafePlayer(peer) {
+		return
+	}
 	if len(pl.Inventory) < 1 || pl.InventorySize < 1 {
 		//NewInvent := pl.Inventory
 		pl.InventorySize = 30
@@ -70,13 +130,16 @@ func SendInventory(pl player.Player, peer enet.Peer) {
 	peer.SendPacket(packet, 0)
 }
 
-func SendDoor(tp tankpacket.TankPacket, pl player.Player, peer enet.Peer) {
+/*func SendDoor(peer enet.Peer) {
+	if player.GetPlayer(peer).CurrentWorld != "" {
+		OnPlayerExitWorld(peer)
+	}
+	break
+}*/
 
-}
-
-func ConsoleMsg(peer enet.Peer, a ...interface{}) {
+func ConsoleMsg(peer enet.Peer, delay int, a ...interface{}) {
 	msg := fmt.Sprintf(a[0].(string), a[1:]...)
-	variant := variant.NewVariant(0, -1)
+	variant := variant.NewVariant(delay, -1)
 	variant.InsertString("OnConsoleMessage")
 	variant.InsertString(msg)
 	variant.Send(peer)
@@ -90,20 +153,24 @@ func BroadcastConsoleMsg(host enet.Host, a ...interface{}) {
 	variant.SendBroadcast(host)
 }
 
-func TalkBubble(peer enet.Peer, b uint32, a ...interface{}) {
+func TalkBubble(peer enet.Peer, netID uint32, delay int, isOverlay bool, a ...interface{}) {
 	msg := fmt.Sprintf(a[0].(string), a[1:]...)
-	variant := variant.NewVariant(0, -1)
+	variant := variant.NewVariant(delay, -1)
 	variant.InsertString("OnTalkBubble")
-	variant.InsertUnsignedInt(b)
+	variant.InsertUnsignedInt(netID)
 	variant.InsertString(msg)
+	variant.InsertInt(utils.BoolToInt(isOverlay))
+	variant.InsertInt(utils.BoolToInt(isOverlay))
 	variant.Send(peer)
 }
 
-func BroadcastTalkBubble(host enet.Host, b uint32, a ...interface{}) {
+func BroadcastTalkBubble(host enet.Host, netID uint32, isOverlay bool, a ...interface{}) {
 	msg := fmt.Sprintf(a[0].(string), a[1:]...)
 	variant := variant.NewVariant(0, -1)
 	variant.InsertString("OnTalkBubble")
-	variant.InsertUnsignedInt(b)
+	variant.InsertUnsignedInt(netID)
+	variant.InsertInt(utils.BoolToInt(isOverlay))
+	variant.InsertInt(utils.BoolToInt(isOverlay))
 	variant.InsertString(msg)
 	variant.SendBroadcast(host)
 }
@@ -145,7 +212,7 @@ func OnSpawn(peer enet.Peer, netid int32, userid int32, posX int32, posY int32, 
 	variant.InsertString(spawnAvatar)
 	variant.Send(peer)
 
-	log.Info(spawnAvatar)
+	//log.Info(spawnAvatar)
 }
 
 //variants

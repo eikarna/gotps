@@ -20,6 +20,168 @@ var (
 	SpawnY int
 )
 
+func ParseUserData(peer enet.Peer, text string) {
+	// Iterate over the lines to find the requestedName key
+	lines := strings.Split(text, "\n")
+	for _, line := range lines {
+		// Split each line into key and value parts
+		parts := strings.Split(line, "|")
+		// Check if the key is "requestedName"
+		if len(parts) != 2 {
+			continue
+		}
+		switch parts[0] {
+		case "requestedName":
+			{
+				player.PlayerMap[peer].RequestedName = parts[1]
+				break
+			}
+		case "TankIDName":
+			{
+				player.PlayerMap[peer].TankIDName = parts[1]
+				break
+			}
+		case "TankIDPass":
+			{
+				player.PlayerMap[peer].TankIDPass = parts[1]
+				break
+			}
+		case "protocol":
+			{
+				aa, err := strconv.ParseUint(parts[1], 10, 32)
+				if err != nil {
+					log.Error("Error Protocol:", err)
+				}
+				player.PlayerMap[peer].Protocol = uint32(aa)
+				break
+			}
+		case "country":
+			{
+				player.PlayerMap[peer].Country = parts[1]
+				break
+			}
+		case "PlatformID":
+			{
+				aa, err := strconv.ParseUint(parts[1], 10, 32)
+				if err != nil {
+					log.Error("Error PlatformID:", err)
+				}
+				player.PlayerMap[peer].PlatformID = uint32(aa)
+
+				break
+			}
+		case "gid":
+			{
+				player.PlayerMap[peer].Gid = parts[1]
+				break
+			}
+		case "rid":
+			{
+				player.PlayerMap[peer].Rid = parts[1]
+				break
+			}
+		case "deviceVersion":
+			{
+				aa, err := strconv.ParseUint(parts[1], 10, 32)
+				if err != nil {
+					log.Error("Error DeviceVersion:", err)
+				}
+				player.PlayerMap[peer].DeviceVersion = uint32(aa)
+				break
+			}
+		default:
+			{
+				continue
+			}
+		}
+	}
+
+}
+
+func OnCommand(peer enet.Peer, host enet.Host, cmd string, isCommand bool) {
+	lowerCmd := strings.ToLower(cmd)
+	if isCommand {
+		fn.LogMsg(peer, "`6"+cmd)
+	}
+	if strings.HasPrefix(lowerCmd, "/help") {
+		fn.LogMsg(peer, "Help Command >> /help /ip")
+	} else if strings.HasPrefix(lowerCmd, "/myip") {
+		fn.LogMsg(peer, "Your IP Address: %s", player.GetPlayer(peer).IpAddress)
+	} else {
+		fn.LogMsg(peer, "`4Unknown command.``  Enter `$/?`` for a list of valid commands.")
+	}
+}
+
+func OnChatInput(peer enet.Peer, host enet.Host, text string) {
+	if strings.Contains(text, "player_chat=") || text == " " || len(strings.TrimSpace(text)) == 0 || (len(text) > 0 && text[0] == '`' && len(text) < 3) {
+		return
+	}
+
+	chatPrefixBuble := player.GetChatPrefix(peer)
+	if chatPrefixBuble == "`$" {
+		chatPrefixBuble = ""
+	}
+
+	for _, currentPeer := range player.PlayerMap {
+		if player.NotSafePlayer(currentPeer.Peer) {
+			continue
+		}
+		if player.PlayerMap[peer].CurrentWorld == player.PlayerMap[currentPeer.Peer].CurrentWorld {
+			fn.ConsoleMsg(currentPeer.Peer, 0, "CP:_PL:0_OID:_CT:[W]_ `6<`w"+player.GetPlayerName(peer)+"`6> "+player.GetChatPrefix(peer)+text)
+			fn.TalkBubble(currentPeer.Peer, player.PlayerMap[peer].NetID, 1000, false, "CP:_PL:0_OID:_player_chat=%s", chatPrefixBuble+text)
+		}
+	}
+}
+
+func OnPlayerMove(peer enet.Peer, packet enet.Packet) {
+	for _, currentPeer := range player.PlayerMap {
+		if player.NotSafePlayer(currentPeer.Peer) {
+			continue
+		}
+		if player.PlayerMap[peer].CurrentWorld == player.PlayerMap[currentPeer.Peer].CurrentWorld {
+			movePacket := packet.GetData()
+			binary.LittleEndian.PutUint16(movePacket[8:], uint16(player.PlayerMap[peer].NetID))
+			packet, err := enet.NewPacket(movePacket, enet.PacketFlagReliable)
+			if err != nil {
+				panic(err)
+			}
+			currentPeer.Peer.SendPacket(packet, 0)
+		}
+	}
+}
+
+func OnPlayerExitWorld(peer enet.Peer) {
+	if player.NotSafePlayer(peer) {
+		return
+	}
+	if player.PlayerMap[peer].CurrentWorld == "" {
+		return
+	}
+	world, err := worlds.GetWorld(player.PlayerMap[peer].CurrentWorld)
+	if err != nil {
+		log.Error(err.Error())
+	}
+	for _, currentPeer := range player.PlayerMap {
+		if player.NotSafePlayer(currentPeer.Peer) {
+			continue
+		}
+		if player.PlayerMap[peer].CurrentWorld == player.PlayerMap[currentPeer.Peer].CurrentWorld {
+			fn.OnRemove(currentPeer.Peer, int(player.PlayerMap[peer].NetID))
+			fn.ConsoleMsg(currentPeer.Peer, 0, "`5<`0%s`` left, `w%d`5 others here>``", player.GetPlayerName(peer), world.PlayersIn)
+		}
+	}
+
+	player.PlayerMap[peer].CurrentWorld = ""
+	player.PlayerMap[peer].SpawnX = 0
+	player.PlayerMap[peer].SpawnY = 0
+	world.PlayersIn--
+	if world.PlayersIn < 0 {
+		world.PlayersIn = 0
+	}
+
+	fn.SendWorldMenu(peer)
+}
+
 func OnConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalPeer []enet.Peer) {
 	log.Info("New Client Connected %s", peer.GetAddress().String())
 	player.PlayerMap[peer] = &player.Player{
@@ -37,70 +199,7 @@ func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalP
 func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.ItemInfo, globalPeer []enet.Peer) {
 	if strings.Contains(text, "requestedName|") {
 		fn.OnSuperMain(peer, items.GetItemHash())
-		lines := strings.Split(text, "\n")
-
-		// Iterate over the lines to find the requestedName key
-		for _, line := range lines {
-			// Split each line into key and value parts
-			parts := strings.Split(line, "|")
-			// Check if the key is "requestedName"
-			if len(parts) != 2 {
-				continue
-			}
-			switch parts[0] {
-			case "requestedName":
-				{
-					player.Players.RequestedName = parts[1]
-					break
-				}
-			case "protocol":
-				{
-					aa, err := strconv.ParseUint(parts[1], 10, 32)
-					if err != nil {
-						log.Error("Error Protocol:", err)
-					}
-					player.Players.Protocol = uint32(aa)
-					break
-				}
-			case "country":
-				{
-					player.Players.Country = parts[1]
-					break
-				}
-			case "PlatformID":
-				{
-					aa, err := strconv.ParseUint(parts[1], 10, 32)
-					if err != nil {
-						log.Error("Error PlatformID:", err)
-					}
-					player.Players.PlatformID = uint32(aa)
-					break
-				}
-			case "gid":
-				{
-					player.Players.Gid = parts[1]
-					break
-				}
-			case "rid":
-				{
-					player.Players.Rid = parts[1]
-					break
-				}
-			case "deviceVersion":
-				{
-					aa, err := strconv.ParseUint(parts[1], 10, 32)
-					if err != nil {
-						log.Error("Error DeviceVersion:", err)
-					}
-					player.Players.DeviceVersion = uint32(aa)
-					break
-				}
-			default:
-				{
-					continue
-				}
-			}
-		}
+		ParseUserData(peer, text)
 	} else if len(text) > 6 && text[:6] == "action" {
 
 		if strings.HasPrefix(text[7:], "enter_game") {
@@ -108,7 +207,7 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 			// player.NewPlayer(peer)
 			fn.LogMsg(peer, "Where would you like to go? (`w%d`` Online)", host.ConnectedPeers())
 		} else if strings.HasPrefix(text[7:], "join_request") {
-			log.Info("Invent Size: %d", byte(player.Players.InventorySize))
+			log.Info("Invent Size: %d", byte(player.PlayerMap[peer].InventorySize))
 			fn.SendInventory(player.Players, peer)
 			worldName := strings.ToUpper(strings.Split(text[25:], "\n")[0])
 			fn.LogMsg(peer, "Sending you to world (%s) (%d)", worldName, len(worldName))
@@ -116,13 +215,14 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 		} else if strings.HasPrefix(text[7:], "input") {
 			UserText := strings.Split(strings.Split(text[7:], "\n")[1], "|")[2]
 			log.Info("User Input Text: %s", UserText)
-			fn.ConsoleMsg(peer, "CP:_PL:0_OID:_CT:[W]_ `6<`w%s`6> %s", player.Players.RequestedName, UserText)
-			fn.TalkBubble(peer, 1, UserText)
+			fn.ConsoleMsg(peer, 0, "CP:_PL:0_OID:_CT:[W]_ `6<`w%s`6> %s", player.PlayerMap[peer].RequestedName, UserText)
+			fn.TalkBubble(peer, player.PlayerMap[peer].NetID, 100, true, UserText)
 			if strings.HasPrefix(UserText, "get") {
 				log.Info("GetPlayer Return: %v", player.GetPlayer(peer))
 			}
 		} else if strings.HasPrefix(text[7:], "quit_to_exit") {
-			player.Players.CurrentWorld = ""
+			fn.ListActiveWorld[player.PlayerMap[peer].CurrentWorld]--
+			player.PlayerMap[peer].CurrentWorld = ""
 			fn.SendWorldMenu(peer)
 		} else if strings.HasPrefix(text[7:], "quit") {
 			peer.DisconnectLater(0)
@@ -136,6 +236,9 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 }
 
 func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *items.ItemInfo, globalPeer []enet.Peer) {
+	if player.NotSafePlayer(peer) {
+		return
+	}
 	if len(packet.GetData()) < 3 {
 		return
 	}
@@ -146,9 +249,10 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 	switch Tank.PacketType {
 	case 0:
 		{ //player movement
-			player.Players.PosX = Tank.X
-			player.Players.PosY = Tank.Y
+			player.PlayerMap[peer].PosX = Tank.X
+			player.PlayerMap[peer].PosY = Tank.Y
 			fn.LogMsg(peer, "[Movement] X:%d, Y:%d", Tank.X, Tank.Y)
+			OnPlayerMove(peer, packet)
 			break
 		}
 	case 3:
@@ -156,31 +260,17 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 			switch Tank.Value {
 			case 18:
 				{
-					player.Players.PunchX = Tank.PunchX
-					player.Players.PunchY = Tank.PunchY
-					testt := &tankpacket.TankPacket{
-						PacketType:     3,
-						NetID:          player.Players.NetID,
-						CharacterState: Tank.CharacterState,
-						Value:          Tank.Value,
-						X:              player.Players.PosX,
-						Y:              player.Players.PosY,
-						XSpeed:         Tank.XSpeed,
-						YSpeed:         Tank.YSpeed,
-						PunchX:         player.Players.PunchX,
-						PunchY:         player.Players.PunchY,
-					}
-					bbb := testt.Serialize(56, true)
-					aaa, err := enet.NewPacket(bbb, enet.PacketFlagReliable)
-					if err != nil {
-						log.Error("Error Packet 3:", err)
-					}
-					peer.SendPacket(aaa, 0)
-					fn.LogMsg(peer, "[Punch/Place] X:%d, Y:%d, Value:%d, NetID:%d", Tank.PunchX, Tank.PunchY, Tank.Value, Tank.NetID)
+					fn.OnPunch(peer, Tank)
+					break
+				}
+			case 32:
+				{
+					// fn.OnPlace(peer, Tank)
 					break
 				}
 			default:
 				{
+
 					break
 				}
 			}
@@ -188,7 +278,11 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 	case 7:
 		{
 			// Door
-			fn.SendDoor(*Tank, player.Players, peer)
+			if player.GetPlayer(peer).CurrentWorld != "" {
+				OnPlayerExitWorld(peer)
+			}
+			break
+			//fn.SendDoor(Tank, player.Players, peer)
 		}
 	case 18:
 		{
@@ -200,8 +294,6 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 		{
 			// Check Client?
 			log.Info("Check Client Msg: %v", Tank)
-			player.Players.NetID = Tank.NetID
-			//player.Players.UserID = Tank.UserID
 			fn.LogMsg(peer, "[Client] Client Msg: %v (Value:%d)", Tank, Tank.Value)
 		}
 	case 32:
@@ -213,7 +305,7 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 		}
 	default:
 		{
-			//player.Players.NetID = Tank.NetID
+			//player.PlayerMap[peer].NetID = Tank.NetID
 			log.Info("Packet type: %d, val: %d", Tank.PacketType, Tank.Value)
 			break
 		}
@@ -271,15 +363,25 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 		panic(err)
 	}
 	peer.SendPacket(packet, 0)
-	player.Players.CurrentWorld = name
-	//for i := 0; i < int(world.PlayersIn); i++ {
-	fn.ConsoleMsg(peer, "`5<`w%s ``entered, `w%d`` others here`5>", player.Players.RequestedName, world.PlayersIn)
-	fn.TalkBubble(peer, 1, "`5<`w%s ``entered, `w%d`` others here`5>", player.Players.RequestedName, world.PlayersIn)
+	player.PlayerMap[peer].CurrentWorld = world.Name
 	if int(world.PlayersIn) < 1 {
 		world.PlayersIn = 1
 	} else {
 		world.PlayersIn++
 	}
-	fn.OnSpawn(peer, world.PlayersIn, world.PlayersIn, int32(SpawnX), int32(SpawnY), "`6@"+player.Players.RequestedName, player.Players.Country, false, true, true, true)
-	//}
+	// Simple Fix
+	player.PlayerMap[peer].NetID = uint32(world.PlayersIn)
+	for _, currentPlayer := range player.PlayerMap {
+		if player.NotSafePlayer(currentPlayer.Peer) {
+			continue
+		}
+		log.Info("%v", currentPlayer)
+		if currentPlayer.CurrentWorld == world.Name {
+			currentPeer := currentPlayer.Peer
+			fn.ConsoleMsg(currentPeer, 0, "`5<`w%s ``entered, `w%d`` others here`5>", player.PlayerMap[peer].RequestedName, world.PlayersIn)
+			fn.TalkBubble(currentPeer, player.PlayerMap[peer].NetID, 500, true, "`5<`w%s ``entered, `w%d`` others here`5>", player.PlayerMap[peer].RequestedName, world.PlayersIn)
+			fn.OnSpawn(currentPeer, world.PlayersIn, world.PlayersIn, int32(SpawnX), int32(SpawnY), "`6@"+player.PlayerMap[peer].RequestedName, player.PlayerMap[peer].Country, false, true, true, true)
+		}
+	}
+	fn.ListActiveWorld[world.Name] = int(world.PlayersIn)
 }
