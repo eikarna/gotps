@@ -16,16 +16,17 @@ type Tiles struct {
 type World struct {
 	Name string
 
-	OwnerUid   int32
-	SizeX      int32
-	SizeY      int32
-	TotalTiles int32
+	OwnerUid    int32
+	SizeX       int32
+	SizeY       int32
+	TotalTiles  int32
+	TotalPlayer int32
 
 	Tiles []Tiles
 }
 
 var (
-	Worlds []World
+	Worlds []*World
 )
 
 func GenerateWorld(name string, sizeX int32, sizeY int32) *World {
@@ -55,7 +56,7 @@ func GenerateWorld(name string, sizeX int32, sizeY int32) *World {
 			tile.Fg = 8
 		}
 		if i == 2400+randomPosDoor {
-			tile.Label = "GolangPS EXIT"
+			tile.Label = "EXIT"
 			tile.Fg = 6
 		}
 		if i == 2500+randomPosDoor {
@@ -66,14 +67,14 @@ func GenerateWorld(name string, sizeX int32, sizeY int32) *World {
 		}
 		world.Tiles = append(world.Tiles, tile)
 	}
-	Worlds = append(Worlds, *world)
+	Worlds = append(Worlds, world)
 	return world
 }
 
 func GetWorld(name string) (*World, error) {
 	for _, world := range Worlds {
 		if world.Name == name {
-			return &world, nil
+			return world, nil
 		}
 	}
 	return GenerateWorld(name, 100, 60), nil

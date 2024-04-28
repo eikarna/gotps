@@ -14,8 +14,6 @@ import (
 var (
 	once          sync.Once
 	GrowtopiaPort uint16 = 17091
-
-	globalPeer []enet.Peer
 )
 
 func main() {
@@ -52,12 +50,12 @@ func main() {
 			}
 		case enet.EventConnect:
 			{
-				clients.OnConnect(ev.GetPeer(), host, itemInfo, globalPeer) //Handle Client OnConnect
+				clients.OnConnect(ev.GetPeer(), host, itemInfo) //Handle Client OnConnect
 				break
 			}
 		case enet.EventDisconnect:
 			{
-				clients.OnDisConnect(ev.GetPeer(), host, itemInfo, globalPeer) //Handle Client OnDisConnect
+				clients.OnDisConnect(ev.GetPeer(), host, itemInfo) //Handle Client OnDisConnect
 				break
 			}
 
@@ -70,18 +68,22 @@ func main() {
 			switch packet.GetData()[0] { //Net Message Type
 			case 2:
 				{
-					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo, globalPeer)
+					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo)
 					break
 				}
 			case 3:
 				{
-					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo, globalPeer)
+					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo)
+					break
+				}
+			case 4:
+				{
+					clients.OnTankPacket(ev.GetPeer(), host, ev.GetPacket(), itemInfo)
 					break
 				}
 			default:
 				{
-					clients.OnTankPacket(ev.GetPeer(), host, ev.GetPacket(), itemInfo, globalPeer)
-					// log.Error("Unhandled type packet: %d", packet.GetData()[0])
+					log.Error("Unhandled message type: %d", packet.GetData()[0])
 					break
 				}
 			}

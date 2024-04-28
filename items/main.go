@@ -1,6 +1,7 @@
 package items
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 
@@ -136,6 +137,14 @@ func SerializeItemsDat(pathFile string) (*ItemInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %v", err)
 	}
+
+	itemInfo.FileBufferPacket = make([]byte, 60+size)
+	binary.LittleEndian.PutUint32(itemInfo.FileBufferPacket[0:], 4)
+	binary.LittleEndian.PutUint32(itemInfo.FileBufferPacket[4:], 16)
+	binary.LittleEndian.PutUint32(itemInfo.FileBufferPacket[8:], ^uint32(0))
+	binary.LittleEndian.PutUint32(itemInfo.FileBufferPacket[16:], 8)
+	binary.LittleEndian.PutUint32(itemInfo.FileBufferPacket[56:], uint32(size))
+	copy(itemInfo.FileBufferPacket[60:], data)
 
 	log.Info("Items.dat serialized with itemcount: %d, itemversion: %d, itemhash: %v", itemInfo.ItemCount, itemInfo.ItemVersion, itemInfo.FileHash)
 	return itemInfo, nil
