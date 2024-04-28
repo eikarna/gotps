@@ -6,7 +6,7 @@ var Players Player
 
 type ItemInfo struct {
 	ID  int
-	Qty int8
+	Qty int16
 }
 
 type Player struct {

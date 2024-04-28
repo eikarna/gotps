@@ -38,6 +38,7 @@ func SendInventory(pl player.Player, peer enet.Peer) {
 		itemsToAdd := []player.ItemInfo{
 			{ID: 18, Qty: 1},
 			{ID: 32, Qty: 1},
+			{ID: 7188, Qty: 200},
 		}
 		for _, item := range itemsToAdd {
 			pl.Inventory = append(pl.Inventory, item)

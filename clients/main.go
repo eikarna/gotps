@@ -101,8 +101,6 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 				}
 			}
 		}
-		//RequestedName = strings.Split(strings.Split(text, "\n")[0], "|")[1]
-		//NetID = strings.Split(strings.Split(text, "\n"))
 	} else if len(text) > 6 && text[:6] == "action" {
 
 		if strings.HasPrefix(text[7:], "enter_game") {
@@ -116,20 +114,11 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 			fn.LogMsg(peer, "Sending you to world (%s) (%d)", worldName, len(worldName))
 			OnEnterGameWorld(peer, host, worldName)
 		} else if strings.HasPrefix(text[7:], "input") {
-			/*CurW, err := worlds.GetWorld(player.Players.CurrentWorld)
-			if err != nil {
-				log.Error("Error World:", err)
-			}
-			NetID := uint32(CurW.PlayersIn)
-			//log.Info("Players In: [uint32: %d], [int32: %d]", uint32(CurW.PlayersIn), CurW.PlayersIn)*/
 			UserText := strings.Split(strings.Split(text[7:], "\n")[1], "|")[2]
 			log.Info("User Input Text: %s", UserText)
 			fn.ConsoleMsg(peer, "CP:_PL:0_OID:_CT:[W]_ `6<`w%s`6> %s", player.Players.RequestedName, UserText)
 			fn.TalkBubble(peer, 1, UserText)
 			if strings.HasPrefix(UserText, "get") {
-				//fn.ConsoleMsg(peer, 1, "GetPlayer return: %v", player.GetPlayer(peer).Peer)
-
-				//fn.TalkBubble(peer, 1, "GetPlayer return: %v", player.GetPlayer(peer).Peer)
 				log.Info("GetPlayer Return: %v", player.GetPlayer(peer))
 			}
 		} else if strings.HasPrefix(text[7:], "quit_to_exit") {
@@ -187,7 +176,6 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 						log.Error("Error Packet 3:", err)
 					}
 					peer.SendPacket(aaa, 0)
-					// pkt.SendPacket(peer, 3, "")
 					fn.LogMsg(peer, "[Punch/Place] X:%d, Y:%d, Value:%d, NetID:%d", Tank.PunchX, Tank.PunchY, Tank.Value, Tank.NetID)
 					break
 				}
