@@ -12,6 +12,7 @@ import (
 	tankpacket "github.com/eikarna/gotps/packet/TankPacket"
 	player "github.com/eikarna/gotps/players"
 	"github.com/eikarna/gotps/worlds"
+	"strconv"
 )
 
 var (
@@ -21,11 +22,16 @@ var (
 
 func OnConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalPeer []enet.Peer) {
 	log.Info("New Client Connected %s", peer.GetAddress().String())
+	player.PlayerMap[peer] = &player.Player{
+		IpAddress: peer.GetAddress().String(),
+		Peer:      peer,
+	}
 	pkt.SendPacket(peer, 1, "") //hello response
 }
 
 func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalPeer []enet.Peer) {
 	log.Info("New Client Disconnected %s", peer.GetAddress().String())
+	delete(player.PlayerMap, peer)
 }
 
 func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.ItemInfo, globalPeer []enet.Peer) {
@@ -47,9 +53,47 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 					player.Players.RequestedName = parts[1]
 					break
 				}
+			case "protocol":
+				{
+					aa, err := strconv.ParseUint(parts[1], 10, 32)
+					if err != nil {
+						log.Error("Error Protocol:", err)
+					}
+					player.Players.Protocol = uint32(aa)
+					break
+				}
 			case "country":
 				{
 					player.Players.Country = parts[1]
+					break
+				}
+			case "PlatformID":
+				{
+					aa, err := strconv.ParseUint(parts[1], 10, 32)
+					if err != nil {
+						log.Error("Error PlatformID:", err)
+					}
+					player.Players.PlatformID = uint32(aa)
+					break
+				}
+			case "gid":
+				{
+					player.Players.Gid = parts[1]
+					break
+				}
+			case "rid":
+				{
+					player.Players.Rid = parts[1]
+					break
+				}
+			case "deviceVersion":
+				{
+					aa, err := strconv.ParseUint(parts[1], 10, 32)
+					if err != nil {
+						log.Error("Error DeviceVersion:", err)
+					}
+					player.Players.DeviceVersion = uint32(aa)
+					break
 				}
 			default:
 				{
@@ -63,9 +107,11 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 
 		if strings.HasPrefix(text[7:], "enter_game") {
 			fn.SendWorldMenu(peer)
-			fn.SendInventory(peer)
+			// player.NewPlayer(peer)
 			fn.LogMsg(peer, "Where would you like to go? (`w%d`` Online)", host.ConnectedPeers())
 		} else if strings.HasPrefix(text[7:], "join_request") {
+			log.Info("Invent Size: %d", byte(player.Players.InventorySize))
+			fn.SendInventory(player.Players, peer)
 			worldName := strings.ToUpper(strings.Split(text[25:], "\n")[0])
 			fn.LogMsg(peer, "Sending you to world (%s) (%d)", worldName, len(worldName))
 			OnEnterGameWorld(peer, host, worldName)
@@ -75,23 +121,29 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 				log.Error("Error World:", err)
 			}
 			NetID := uint32(CurW.PlayersIn)
-			log.Info("Players In: [uint32: %d], [int32: %d]", uint32(CurW.PlayersIn), CurW.PlayersIn)*/
+			//log.Info("Players In: [uint32: %d], [int32: %d]", uint32(CurW.PlayersIn), CurW.PlayersIn)*/
 			UserText := strings.Split(strings.Split(text[7:], "\n")[1], "|")[2]
 			log.Info("User Input Text: %s", UserText)
-			packet := "CP:_PL:0_OID:_CT:[W]_ `6<`w" + player.Players.RequestedName + "`6> "
-			packet += UserText
-			fn.ConsoleMsg(packet, peer)
-			fn.TalkBubble(UserText, 1, peer)
+			fn.ConsoleMsg(peer, "CP:_PL:0_OID:_CT:[W]_ `6<`w%s`6> %s", player.Players.RequestedName, UserText)
+			fn.TalkBubble(peer, 1, UserText)
+			if strings.HasPrefix(UserText, "get") {
+				//fn.ConsoleMsg(peer, 1, "GetPlayer return: %v", player.GetPlayer(peer).Peer)
+
+				//fn.TalkBubble(peer, 1, "GetPlayer return: %v", player.GetPlayer(peer).Peer)
+				log.Info("GetPlayer Return: %v", player.GetPlayer(peer))
+			}
 		} else if strings.HasPrefix(text[7:], "quit_to_exit") {
+			player.Players.CurrentWorld = ""
 			fn.SendWorldMenu(peer)
 		} else if strings.HasPrefix(text[7:], "quit") {
 			peer.DisconnectLater(0)
 		} else {
 			fn.LogMsg(peer, "Unhandled Action Packet type: %s", text[7:])
 		}
+	} else {
+		fn.LogMsg(peer, "Unhandled TextPacket, msg: %v", text)
+		log.Info("Unhandled TextPacket, msg: %v", text)
 	}
-
-	log.Info("msg: %v", text)
 }
 
 func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *items.ItemInfo, globalPeer []enet.Peer) {
@@ -112,18 +164,68 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 		}
 	case 3:
 		{ //punch / place
-			player.Players.PunchX = Tank.PunchX
-			player.Players.PunchY = Tank.PunchY
-			fn.LogMsg(peer, "[Punch/Place] X:%d, Y:%d", Tank.PunchX, Tank.PunchY)
-			break
+			switch Tank.Value {
+			case 18:
+				{
+					player.Players.PunchX = Tank.PunchX
+					player.Players.PunchY = Tank.PunchY
+					testt := &tankpacket.TankPacket{
+						PacketType:     3,
+						NetID:          player.Players.NetID,
+						CharacterState: Tank.CharacterState,
+						Value:          Tank.Value,
+						X:              player.Players.PosX,
+						Y:              player.Players.PosY,
+						XSpeed:         Tank.XSpeed,
+						YSpeed:         Tank.YSpeed,
+						PunchX:         player.Players.PunchX,
+						PunchY:         player.Players.PunchY,
+					}
+					bbb := testt.Serialize(56, true)
+					aaa, err := enet.NewPacket(bbb, enet.PacketFlagReliable)
+					if err != nil {
+						log.Error("Error Packet 3:", err)
+					}
+					peer.SendPacket(aaa, 0)
+					// pkt.SendPacket(peer, 3, "")
+					fn.LogMsg(peer, "[Punch/Place] X:%d, Y:%d, Value:%d, NetID:%d", Tank.PunchX, Tank.PunchY, Tank.Value, Tank.NetID)
+					break
+				}
+			default:
+				{
+					break
+				}
+			}
+		}
+	case 7:
+		{
+			// Door
+			fn.SendDoor(*Tank, player.Players, peer)
 		}
 	case 18:
 		{
 			// Break
+			pkt.SendPacket(peer, 3, "")
 			fn.LogMsg(peer, "[Break] X: %d, Y:%d", Tank.PunchX, Tank.PunchY)
+		}
+	case 24:
+		{
+			// Check Client?
+			log.Info("Check Client Msg: %v", Tank)
+			player.Players.NetID = Tank.NetID
+			//player.Players.UserID = Tank.UserID
+			fn.LogMsg(peer, "[Client] Client Msg: %v (Value:%d)", Tank, Tank.Value)
+		}
+	case 32:
+		{
+			// Unknpwn
+			pkt.SendPacket(peer, 3, "")
+			fn.LogMsg(peer, "[Break2??] X: %d, Y:%d", Tank.PunchX, Tank.PunchY)
+
 		}
 	default:
 		{
+			//player.Players.NetID = Tank.NetID
 			log.Info("Packet type: %d, val: %d", Tank.PacketType, Tank.Value)
 			break
 		}
@@ -182,10 +284,14 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 	}
 	peer.SendPacket(packet, 0)
 	player.Players.CurrentWorld = name
+	//for i := 0; i < int(world.PlayersIn); i++ {
+	fn.ConsoleMsg(peer, "`5<`w%s ``entered, `w%d`` others here`5>", player.Players.RequestedName, world.PlayersIn)
+	fn.TalkBubble(peer, 1, "`5<`w%s ``entered, `w%d`` others here`5>", player.Players.RequestedName, world.PlayersIn)
 	if int(world.PlayersIn) < 1 {
 		world.PlayersIn = 1
+	} else {
+		world.PlayersIn++
 	}
-	for i := 0; i < int(world.PlayersIn); i++ {
-		fn.OnSpawn(peer, 1, int32(i), int32(SpawnX), int32(SpawnY), "`6@"+player.Players.RequestedName, player.Players.Country, false, true, true, true)
-	}
+	fn.OnSpawn(peer, world.PlayersIn, world.PlayersIn, int32(SpawnX), int32(SpawnY), "`6@"+player.Players.RequestedName, player.Players.Country, false, true, true, true)
+	//}
 }

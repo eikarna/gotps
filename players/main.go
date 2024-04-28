@@ -4,6 +4,11 @@ import enet "github.com/eikarna/gotops"
 
 var Players Player
 
+type ItemInfo struct {
+	ID  int
+	Qty int8
+}
+
 type Player struct {
 	TankIDName    string
 	TankIDPass    string
@@ -17,8 +22,8 @@ type Player struct {
 	PlatformID    uint32
 	DeviceVersion uint32
 	MacAddr       string
-	rid           string
-	gid           string
+	Rid           string
+	Gid           string
 	PlayerAge     uint32
 	CurrentWorld  string
 	Peer          enet.Peer
@@ -26,7 +31,11 @@ type Player struct {
 	PosY          uint32
 	PunchX        uint32
 	PunchY        uint32
+	Inventory     []ItemInfo
+	InventorySize uint16
 }
+
+var PlayerMap = make(map[enet.Peer]*Player)
 
 func (p *Player) GetTankName() string {
 	return p.TankIDName
@@ -65,11 +74,11 @@ func (p *Player) GetDeviceVersion() uint32 {
 }
 
 func (p *Player) GetRid() string {
-	return p.rid
+	return p.Rid
 }
 
 func (p *Player) GetGid() string {
-	return p.gid
+	return p.Gid
 }
 
 func (p *Player) GetIp() string {
@@ -80,7 +89,15 @@ func (p *Player) GetUserid() uint32 {
 	return p.UserID
 }
 
-func NewPlayer() *Player {
+func NewPlayer(peer enet.Peer) *Player {
 	player := &Player{}
+	return player
+}
+
+func GetPlayer(peer enet.Peer) *Player {
+	player, exists := PlayerMap[peer]
+	if !exists {
+		return nil
+	}
 	return player
 }

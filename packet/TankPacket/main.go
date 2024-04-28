@@ -15,6 +15,8 @@ type TankPacket struct {
 	PunchY         uint32
 }
 
+// Check Client Msg: &{24 4294967295 0 1125432991 0 0 0 0 0 0}
+
 func (packet *TankPacket) Serialize(packetLength int32, createPacket bool) []byte {
 	if createPacket {
 		packetLength += 4

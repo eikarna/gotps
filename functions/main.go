@@ -1,14 +1,16 @@
 package functions
 
 import (
+	"encoding/binary"
 	"fmt"
-	"strconv"
-
 	"github.com/codecat/go-libs/log"
 	enet "github.com/eikarna/gotops"
 	variant "github.com/eikarna/gotps/functions/variants"
 	pkt "github.com/eikarna/gotps/packet"
+	tankpacket "github.com/eikarna/gotps/packet/TankPacket"
+	player "github.com/eikarna/gotps/players"
 	"github.com/eikarna/gotps/utils"
+	"strconv"
 )
 
 func SendWorldMenu(peer enet.Peer) {
@@ -29,37 +31,79 @@ func SendWorldMenu(peer enet.Peer) {
 }
 
 // TODO:
-func SendInventory(peer enet.Peer) {
+func SendInventory(pl player.Player, peer enet.Peer) {
+	if len(pl.Inventory) < 1 || pl.InventorySize < 1 {
+		//NewInvent := pl.Inventory
+		pl.InventorySize = 30
+		itemsToAdd := []player.ItemInfo{
+			{ID: 18, Qty: 1},
+			{ID: 32, Qty: 1},
+		}
+		for _, item := range itemsToAdd {
+			pl.Inventory = append(pl.Inventory, item)
+		}
+	}
+	packetLen := 66 + (pl.InventorySize * 4) + 4
+	d_ := make([]byte, packetLen)
+	binary.LittleEndian.PutUint16(d_[0:], 4)
+	binary.LittleEndian.PutUint16(d_[4:], 9)
+	binary.LittleEndian.PutUint16(d_[8:], 255)
+	binary.LittleEndian.PutUint16(d_[16:], 8)
+	binary.LittleEndian.PutUint16(d_[56:], 6+(pl.InventorySize*4)+4)
+	binary.LittleEndian.PutUint16(d_[60:], 1)
+	binary.LittleEndian.PutUint16(d_[61:], pl.InventorySize)
+	binary.LittleEndian.PutUint16(d_[65:], pl.InventorySize)
+	offset := 67
+	for _, Inven := range pl.Inventory {
+		binary.LittleEndian.PutUint16(d_[offset:], uint16(Inven.ID))
+		offset += 2
+		binary.LittleEndian.PutUint16(d_[offset:], uint16(Inven.Qty))
+		offset += 2
+	}
+	//}
+	log.Info("SendInventory Byte: %b | String: %s", d_, d_)
+	packet, err := enet.NewPacket(d_, enet.PacketFlagReliable)
+	if err != nil {
+		log.Error(err.Error())
+	}
+	peer.SendPacket(packet, 0)
+}
+
+func SendDoor(tp tankpacket.TankPacket, pl player.Player, peer enet.Peer) {
 
 }
 
-func ConsoleMsg(a string, peer enet.Peer) {
+func ConsoleMsg(peer enet.Peer, a ...interface{}) {
+	msg := fmt.Sprintf(a[0].(string), a[1:]...)
 	variant := variant.NewVariant(0, -1)
 	variant.InsertString("OnConsoleMessage")
-	variant.InsertString(a)
+	variant.InsertString(msg)
 	variant.Send(peer)
 }
 
-func BroadcastConsoleMsg(a string, host enet.Host) {
+func BroadcastConsoleMsg(host enet.Host, a ...interface{}) {
+	msg := fmt.Sprintf(a[0].(string), a[1:]...)
 	variant := variant.NewVariant(0, -1)
 	variant.InsertString("OnConsoleMessage")
-	variant.InsertString(a)
+	variant.InsertString(msg)
 	variant.SendBroadcast(host)
 }
 
-func TalkBubble(a string, b uint32, peer enet.Peer) {
+func TalkBubble(peer enet.Peer, b uint32, a ...interface{}) {
+	msg := fmt.Sprintf(a[0].(string), a[1:]...)
 	variant := variant.NewVariant(0, -1)
 	variant.InsertString("OnTalkBubble")
 	variant.InsertUnsignedInt(b)
-	variant.InsertString(a)
+	variant.InsertString(msg)
 	variant.Send(peer)
 }
 
-func BroadcastTalkBubble(a string, b uint32, host enet.Host) {
+func BroadcastTalkBubble(host enet.Host, b uint32, a ...interface{}) {
+	msg := fmt.Sprintf(a[0].(string), a[1:]...)
 	variant := variant.NewVariant(0, -1)
 	variant.InsertString("OnTalkBubble")
 	variant.InsertUnsignedInt(b)
-	variant.InsertString(a)
+	variant.InsertString(msg)
 	variant.SendBroadcast(host)
 }
 
