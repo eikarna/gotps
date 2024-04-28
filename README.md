@@ -1,4 +1,7 @@
-# GotPS
+![Banner](https://telegra.ph/file/0f56ad0f822d8e692877b.png)
+
+<h1 align="center">GoTPS</h1>
+
 First Growtopia Private Server using Go. Based on [eikarna/gotops](https://github.com/eikarna/gotops)
 
 # Known Issues
@@ -8,20 +11,25 @@ First Growtopia Private Server using Go. Based on [eikarna/gotops](https://githu
 - No Active Contributor rn.
 
 ## TODO:
-- [ ] RequestedName Handler
+- [X] RequestedName Handler
 - [ ] GrowID Handler
-- [ ] World Handler
-- [ ] SuperMain Handler
+- [X] World Handler
+- [X] SuperMain Handler
+- [X] Inventory Handler
 - [ ] Anti SPAM/Exploit Handler
-- [ ] Player Data Structures
-- [ ] World Data Structures
+- [X] Player Data Structures
+- [X] World Data Structures
 - [ ] Currency Data Structures
-- [ ] Inventory Data Structures
+- [X] Inventory Data Structures
 - [ ] Interactive Blocks
+- [ ] Auto Save System
+- [ ] Many Features
 
-# Snapshot
-![Snapshot 1](https://telegra.ph/file/31cb64112ad06edcddd90.jpg)
-![Snapshot 2](https://telegra.ph/file/b311c56385fd5e5a2c78e.png)
+# Snapshot / Preview
+<a href="https://telegra.ph/file/31cb64112ad06edcddd90.jpg">![Snapshot 1](https://telegra.ph/file/31cb64112ad06edcddd90.jpg)</a>
+<a href="https://telegra.ph/file/b311c56385fd5e5a2c78e.png">![Snapshot 2](https://telegra.ph/file/b311c56385fd5e5a2c78e.png)</a>
+<a href="https://telegra.ph/file/05196db9e0b050bf00a83.png">![Snapshot 3](https://telegra.ph/file/05196db9e0b050bf00a83.png)</a>
+<a href="https://telegra.ph/file/16615a529c2d959a3b41b.jpg">![Snapshot 4](https://telegra.ph/file/16615a529c2d959a3b41b.jpg)</a>
 
 ### Feel free to contribute!
 
