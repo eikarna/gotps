@@ -3,6 +3,7 @@ package functions
 import (
 	"encoding/binary"
 	"fmt"
+	//	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/codecat/go-libs/log"
 	enet "github.com/eikarna/gotops"
 	variant "github.com/eikarna/gotps/functions/variants"
@@ -10,6 +11,7 @@ import (
 	tankpacket "github.com/eikarna/gotps/packet/TankPacket"
 	player "github.com/eikarna/gotps/players"
 	"github.com/eikarna/gotps/utils"
+	"github.com/eikarna/gotps/worlds"
 	"strconv"
 )
 
@@ -27,31 +29,64 @@ func OnRemove(peer enet.Peer, netid int) {
 	variant.Send(peer)
 }
 
-func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket) {
-	player.PlayerMap[peer].PunchX = Tank.PunchX
-	player.PlayerMap[peer].PunchY = Tank.PunchY
+func OnDialogRequest(peer enet.Peer, dialog string, delay int) {
+	variant := variant.NewVariant(delay, -1)
+	variant.InsertString("OnDialogRequest")
+	variant.InsertString(dialog)
+	variant.Send(peer)
+}
+
+func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket, name string, world *worlds.World) {
+	//player.PlayerMap[peer].PunchX = Tank.PunchX
+	//player.PlayerMap[peer].PunchY = Tank.PunchY
+	/* test, err := worlds.GetWorld(player.PlayerMap[peer].CurrentWorld)
+	if err != nil {
+		return
+	}*/
+	//test, ok := worlds.Worlds[player.PlayerMap[peer].CurrentWorld]
+	/*world, err := worlds.LoadWorld(db, name)
+	if err != nil {
+		peer.DisconnectLater(0)
+		log.Error("Worlds with name: %s is not found in our database!", name)
+	}*/
+	Coords := Tank.PunchX + (Tank.PunchY * uint32(world.SizeX))
+	ConsoleMsg(peer, 0, "PunchX: %d, PunchY: %d, TotalXY: %d", Tank.PunchX, Tank.PunchY, Coords)
+	switch world.Tiles[Coords].Fg {
+	case 6:
+		{
+			TalkBubble(peer, player.PlayerMap[peer].NetID, 0, false, "Don't break the white door!")
+			return
+			break
+		}
+	default:
+		{
+			// TalkBubble(peer, player.PlayerMap[peer].NetID, 0, false, "Fg: %d", test.Tiles[Coords].Fg)
+			break
+		}
+	}
 	testt := &tankpacket.TankPacket{
 		PacketType:     3,
 		NetID:          player.PlayerMap[peer].NetID,
 		CharacterState: Tank.CharacterState,
 		Value:          Tank.Value,
-		X:              player.PlayerMap[peer].PosX,
-		Y:              player.PlayerMap[peer].PosY,
+		X:              Tank.X,
+		Y:              Tank.Y,
 		XSpeed:         Tank.XSpeed,
 		YSpeed:         Tank.YSpeed,
-		PunchX:         player.PlayerMap[peer].PunchX,
-		PunchY:         player.PlayerMap[peer].PunchY,
+		PunchX:         Tank.PunchX,
+		PunchY:         Tank.PunchY,
 	}
 	bbb := testt.Serialize(56, true)
 	aaa, err := enet.NewPacket(bbb, enet.PacketFlagReliable)
 	if err != nil {
 		log.Error("Error Packet 3:", err)
 	}
-	for _, currentPeer := range player.PlayerMap {
-		if player.PlayerMap[peer].CurrentWorld == currentPeer.CurrentWorld {
-			currentPeer.Peer.SendPacket(aaa, 0)
-		} else {
+	for _, currentPeer := range player.GetPeers(player.PlayerMap) {
+		if player.NotSafePlayer(currentPeer) {
 			continue
+		}
+		if player.PlayerMap[peer].CurrentWorld == player.PlayerMap[currentPeer].CurrentWorld {
+			currentPeer.SendPacket(aaa, 0)
 		}
 	}
 	LogMsg(peer, "[Punch/Place] X:%d, Y:%d, Value:%d, NetID:%d", Tank.PunchX, Tank.PunchY, Tank.Value, Tank.NetID)
@@ -60,7 +95,7 @@ func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket) {
 func SendWorldMenu(peer enet.Peer) {
 	var world_packet string
 	// Add World Start as default
-	ListActiveWorld["START"] = 255
+	ListActiveWorld["START"] = 65
 	world_packet += "add_filter|\n"
 	world_packet += "add_heading|Top Worlds<ROW2>|\n"
 	for listworld, count := range ListActiveWorld {
@@ -192,7 +227,7 @@ func LogMsg(peer enet.Peer, a ...interface{}) {
 	pkt.SendPacket(peer, 3, "action|log\nmsg|"+msg)
 }
 
-func OnSpawn(peer enet.Peer, netid int32, userid int32, posX int32, posY int32, username string, country string, invis bool, mstate bool, smsate bool, local bool) {
+func OnSpawn(peer enet.Peer, netid int16, userid int16, posX int32, posY int32, username string, country string, invis bool, mstate bool, smsate bool, local bool) {
 	spawnAvatar := "spawn|avatar\n"
 	spawnAvatar += "netID|" + strconv.Itoa(int(netid)) + "\n"
 	spawnAvatar += "userID|" + strconv.Itoa(int(userid)) + "\n"
@@ -212,7 +247,7 @@ func OnSpawn(peer enet.Peer, netid int32, userid int32, posX int32, posY int32, 
 	variant.InsertString(spawnAvatar)
 	variant.Send(peer)
 
-	//log.Info(spawnAvatar)
+	log.Info(spawnAvatar)
 }
 
 //variants

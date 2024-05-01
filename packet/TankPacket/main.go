@@ -1,54 +1,55 @@
 package tankpacket
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"math"
+)
 
 type TankPacket struct {
 	PacketType     uint32
 	NetID          uint32
 	CharacterState uint32
 	Value          uint32
-	X              uint32
-	Y              uint32
-	XSpeed         uint32
-	YSpeed         uint32
+	X              float32
+	Y              float32
+	XSpeed         float32
+	YSpeed         float32
 	PunchX         uint32
 	PunchY         uint32
 }
 
-// Check Client Msg: &{24 4294967295 0 1125432991 0 0 0 0 0 0}
-
-func (packet *TankPacket) Serialize(packetLength int32, createPacket bool) []byte {
+func (tank *TankPacket) Serialize(packetLength int32, createPacket bool) []byte {
 	if createPacket {
 		packetLength += 4
 	}
-	tank := make([]byte, packetLength) //default 56
+	data := make([]byte, packetLength) //default 56
 
 	if createPacket {
-		binary.LittleEndian.PutUint32(tank[0:], uint32(4))
+		binary.LittleEndian.PutUint32(data[0:], uint32(4))
 	}
-	binary.LittleEndian.PutUint32(tank[4:], uint32(packet.PacketType))
-	binary.LittleEndian.PutUint32(tank[4+4:], uint32(packet.NetID))
-	binary.LittleEndian.PutUint32(tank[4+12:], uint32(packet.CharacterState))
-	binary.LittleEndian.PutUint32(tank[4+20:], uint32(packet.Value))
-	binary.LittleEndian.PutUint32(tank[4+24:], uint32(packet.X))
-	binary.LittleEndian.PutUint32(tank[4+28:], uint32(packet.Y))
-	binary.LittleEndian.PutUint32(tank[4+32:], uint32(packet.XSpeed))
-	binary.LittleEndian.PutUint32(tank[4+36:], uint32(packet.YSpeed))
-	binary.LittleEndian.PutUint32(tank[4+44:], uint32(packet.PunchX))
-	binary.LittleEndian.PutUint32(tank[4+48:], uint32(packet.PunchY))
-	return tank
+	binary.LittleEndian.PutUint32(data[4:], tank.PacketType)
+	binary.LittleEndian.PutUint32(data[8:], tank.NetID)
+	binary.LittleEndian.PutUint32(data[16:], tank.CharacterState)
+	binary.LittleEndian.PutUint32(data[24:], tank.Value)
+	binary.LittleEndian.PutUint32(data[28:], math.Float32bits(tank.X))
+	binary.LittleEndian.PutUint32(data[32:], math.Float32bits(tank.Y))
+	binary.LittleEndian.PutUint32(data[36:], math.Float32bits(tank.XSpeed))
+	binary.LittleEndian.PutUint32(data[44:], math.Float32bits(tank.YSpeed))
+	binary.LittleEndian.PutUint32(data[48:], tank.PunchX)
+	binary.LittleEndian.PutUint32(data[52:], tank.PunchY)
+	return data
 }
 
 func (tank *TankPacket) SerializeFromMem(data []byte) *TankPacket {
-	tank.PacketType = binary.LittleEndian.Uint32(data[4+0:])
-	tank.NetID = binary.LittleEndian.Uint32(data[4+4:])
-	tank.CharacterState = binary.LittleEndian.Uint32(data[4+12:])
-	tank.Value = binary.LittleEndian.Uint32(data[4+20:])
-	tank.X = binary.LittleEndian.Uint32(data[4+24:])
-	tank.Y = binary.LittleEndian.Uint32(data[4+28:])
-	tank.XSpeed = binary.LittleEndian.Uint32(data[4+32:])
-	tank.YSpeed = binary.LittleEndian.Uint32(data[4+36:])
-	tank.PunchX = binary.LittleEndian.Uint32(data[4+44:])
-	tank.PunchY = binary.LittleEndian.Uint32(data[4+48:])
+	tank.PacketType = binary.LittleEndian.Uint32(data[:4])
+	tank.NetID = binary.LittleEndian.Uint32(data[4:8])
+	tank.CharacterState = binary.LittleEndian.Uint32(data[12:16])
+	tank.Value = binary.LittleEndian.Uint32(data[20:24])
+	tank.X = math.Float32frombits(binary.LittleEndian.Uint32(data[24:28]))
+	tank.Y = math.Float32frombits(binary.LittleEndian.Uint32(data[28:32]))
+	tank.XSpeed = math.Float32frombits(binary.LittleEndian.Uint32(data[32:36]))
+	tank.YSpeed = math.Float32frombits(binary.LittleEndian.Uint32(data[36:40]))
+	tank.PunchX = binary.LittleEndian.Uint32(data[44:48])
+	tank.PunchY = binary.LittleEndian.Uint32(data[48:52])
 	return tank
 }
