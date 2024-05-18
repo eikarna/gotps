@@ -96,12 +96,15 @@ func main() {
 				}
 			case 4:
 				{
-					clients.OnTankPacket(ev.GetPeer(), host, ev.GetPacket(), itemInfo, globalPeer)
+					log.Warn("%#v", pkt.GetMessageFromPacket(packet))
+					clients.OnTankPacket(ev.GetPeer(), host, packet, itemInfo, globalPeer)
 					break
 				}
 			case 22:
-				pkt.SendPacket(ev.GetPeer(), 21, "")
-				break
+				{
+					pkt.SendPacket(ev.GetPeer(), 21, "")
+					break
+				}
 			default:
 				{
 					log.Error("Unhandled type packet: %d", packet.GetData()[0])

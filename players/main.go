@@ -1,12 +1,13 @@
 package players
 
 import (
-	"github.com/codecat/go-libs/log"
-	"github.com/eikarna/gotops"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/codecat/go-libs/log"
+	enet "github.com/eikarna/gotops"
 )
 
 var Players Player
@@ -52,7 +53,7 @@ type Player struct {
 	NetID         uint32     `clover:"NetID"`
 	Protocol      uint32     `clover:"Protocol"`
 	GameVersion   string     `clover:"GameVersion"`
-	PlatformID    uint32     `clover:"PlatformID"`
+	PlatformID    string     `clover:"PlatformID"`
 	DeviceVersion uint32     `clover:"DeviceVersion"`
 	MacAddr       string     `clover:"MacAddr"`
 	Rid           string     `clover:"Rid"`
@@ -91,7 +92,7 @@ func (p *Player) GetCountry() string {
 	return p.Country
 }
 
-func (p *Player) GetPlatformID() uint32 {
+func (p *Player) GetPlatformID() string {
 	return p.PlatformID
 }
 
@@ -248,7 +249,6 @@ func ParseUserData(text string, peer enet.Peer) {
 
 	// Convert protocol and platformID to uint32
 	protocol := parseUint(userData["protocol"])
-	platformID := parseUint(userData["platformID"])
 
 	// Convert deviceVersion to uint32
 	deviceVersion := parseUint(userData["deviceVersion"])
@@ -263,7 +263,7 @@ func ParseUserData(text string, peer enet.Peer) {
 		RequestedName: userData["requestedName"],
 		Protocol:      uint32(protocol),
 		Country:       userData["country"],
-		PlatformID:    uint32(platformID),
+		PlatformID:    userData["platformID"],
 		Gid:           userData["gid"],
 		Rid:           userData["rid"],
 		DeviceVersion: uint32(deviceVersion),

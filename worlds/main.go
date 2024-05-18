@@ -29,6 +29,7 @@ type World struct {
 	TotalTiles int32
 	Admins     []Admins
 	Tiles      []Tiles
+	PosDoor    int32
 }
 
 var Worlds = make(map[string]*World)
@@ -62,6 +63,7 @@ func GenerateWorld(name string, sizeX int32, sizeY int32) *World {
 		if i == 2400+randomPosDoor {
 			tile.Label = "EXIT"
 			tile.Fg = 6
+			world.PosDoor = int32(i + randomPosDoor)
 		}
 		if i == 2500+randomPosDoor {
 			tile.Fg = 8

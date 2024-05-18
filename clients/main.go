@@ -3,6 +3,11 @@ package clients
 import (
 	//	"encoding/binary"
 	"encoding/binary"
+	"math"
+	"runtime"
+	"strconv"
+	"strings"
+
 	log "github.com/codecat/go-libs/log"
 	enet "github.com/eikarna/gotops"
 	fn "github.com/eikarna/gotps/functions"
@@ -11,14 +16,6 @@ import (
 	tankpacket "github.com/eikarna/gotps/packet/TankPacket"
 	. "github.com/eikarna/gotps/players"
 	"github.com/eikarna/gotps/worlds"
-	"runtime"
-	"strconv"
-	"strings"
-)
-
-var (
-	SpawnX int
-	SpawnY int
 )
 
 func OnTileUpdate(packet enet.Packet, peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World) {
@@ -286,18 +283,22 @@ func OnChatInput(peer enet.Peer, host enet.Host, text string) {
 }
 
 func OnPlayerMove(peer enet.Peer, packet enet.Packet) {
-
+	movePacket := packet.GetData()
+	log.Warn("%#v", pkt.GetMessageFromPacket(packet))
+	PInfo(peer).RotatedLeft = (binary.LittleEndian.Uint32(movePacket[16:20]) & 0x10) != 0
+	PInfo(peer).PosX = math.Float32frombits(binary.LittleEndian.Uint32(movePacket[28:32]))
+	PInfo(peer).PosY = math.Float32frombits(binary.LittleEndian.Uint32(movePacket[32:36]))
+	log.Info("%s RotatedLeft: %t, PosX: %0.f, Pos: %0.f", PInfo(peer).Name, PInfo(peer).RotatedLeft, PInfo(peer).PosX, PInfo(peer).PosY)
+	binary.LittleEndian.PutUint16(movePacket[8:12], uint16(PInfo(peer).NetID))
+	packet, err := enet.NewPacket(movePacket, enet.PacketFlagReliable)
+	if err != nil {
+		panic(err)
+	}
 	for _, currentPeer := range GetPeers(PlayerMap) {
 		if NotSafePlayer(currentPeer) {
 			continue
 		}
 		if PInfo(peer).CurrentWorld == PInfo(currentPeer).CurrentWorld {
-			movePacket := packet.GetData()
-			binary.LittleEndian.PutUint16(movePacket[8:], uint16(PInfo(peer).NetID))
-			packet, err := enet.NewPacket(movePacket, enet.PacketFlagReliable)
-			if err != nil {
-				panic(err)
-			}
 			currentPeer.SendPacket(packet, 0)
 		}
 	}
@@ -320,7 +321,7 @@ func OnPlayerExitWorld(peer enet.Peer, world *worlds.World) {
 		if NotSafePlayer(currentPeer) {
 			continue
 		}
-		if PInfo(peer).CurrentWorld == PInfo(currentPeer).CurrentWorld && PInfo(currentPeer).PeerID != PInfo(peer).PeerID {
+		if PInfo(peer).CurrentWorld == PInfo(currentPeer).CurrentWorld {
 			fn.PlayMsg(currentPeer, 0, "audio/door_shut.wav")
 			fn.OnRemove(currentPeer, int(PInfo(peer).NetID))
 			fn.TalkBubble(currentPeer, PInfo(peer).NetID, 0, true, "`5<`0%s`` left, `w%d`5 others here>``", GetPlayerName(peer), world.PlayersIn)
@@ -329,6 +330,8 @@ func OnPlayerExitWorld(peer enet.Peer, world *worlds.World) {
 	}
 	PInfo(peer).SpawnX = 0
 	PInfo(peer).SpawnY = 0
+	PInfo(peer).PosX = 0
+	PInfo(peer).PosY = 0
 	if PInfo(peer).CurrentWorld != "" && (world.Name != "" || world.Name != "EXIT") {
 		if world.PlayersIn < 1 {
 			world.PlayersIn = 0
@@ -413,7 +416,7 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 				fn.UpdateName(peer, PInfo(peer).Name)
 				if PInfo(peer).TankIDName != "" {
 					fn.SetHasGrowID(peer)
-					// fn.SetAccountHasSecured(peer)
+					fn.SetAccountHasSecured(peer)
 				}
 				log.Info("Loaded Skin: %d", PInfo(peer).SkinColor)
 				fn.UpdateClothes(0, peer)
@@ -527,13 +530,13 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 		switch Tank.PacketType {
 		case 0:
 			{ //player movement
-				//fn.LogMsg(peer, "[Movement] X:%f, Y:%f", Tank.X, Tank.Y)
 				OnPlayerMove(peer, packet)
 				break
 			}
 		case 3:
 			{
 				OnTileUpdate(packet, peer, Tank, world)
+				break
 			}
 		case 7:
 			{
@@ -550,9 +553,11 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 					{
 						PInfo(peer).Clothes.Hand = float32(Tank.Value)
 						for _, currentPeer := range GetPeers(PlayerMap) {
-							fn.UpdateClothes(0, currentPeer)
+							if PInfo(currentPeer).CurrentWorld != PInfo(peer).CurrentWorld {
+								fn.UpdateClothes(0, currentPeer)
+							}
+							break
 						}
-						break
 					}
 				}
 				log.Info("Packet type: %d, val: %d (%#v)", Tank.PacketType, Tank.Value, Tank)
@@ -653,10 +658,11 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 		panic(err)
 	}
 	peer.SendPacket(packet, 0)*/
+	fn.OnSetFreezeState(peer, true, 0)
 	fn.UpdateWorld(peer, name)
 	world := worlds.Worlds[name]
-	SpawnX = int(PInfo(peer).SpawnX)
-	SpawnY = int(PInfo(peer).SpawnY)
+
+	fn.SetRespawnPos(peer, int(world.PosDoor), 0)
 	// Avoid minus
 	if int(world.PlayersIn) < 1 {
 		world.PlayersIn = 0
@@ -667,12 +673,14 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 	PInfo(peer).NetID = uint32(world.PlayersIn)
 	// BotList.Load(peer)
 	if PInfo(peer).CurrentWorld == "" {
+		fn.OnSetFreezeState(peer, false, 0)
 		fn.OnSpawn(peer, int16(PInfo(peer).NetID), PInfo(peer).PeerID, int32(PInfo(peer).SpawnX), int32(PInfo(peer).SpawnY), GetPlayerName(peer), PInfo(peer).Country, false, true, true, true)
 	}
 	PInfo(peer).CurrentWorld = world.Name
 	fn.PlayMsg(peer, 0, "audio/door_open.wav")
 	fn.ConsoleMsg(peer, 0, "`5<`w%s ``entered, `w%d`` others here`5>", GetPlayerName(peer), world.PlayersIn)
 	fn.TalkBubble(peer, PInfo(peer).NetID, 300, true, "`5<`w%s ``entered, `w%d`` others here`5>", GetPlayerName(peer), world.PlayersIn)
+	fn.UpdateClothes(0, peer)
 	for _, currentPeer := range GetPeers(PlayerMap) {
 		log.Info("%v", currentPeer)
 		if PInfo(currentPeer).CurrentWorld == PInfo(peer).CurrentWorld && PInfo(currentPeer).PeerID != PInfo(peer).PeerID {
@@ -682,10 +690,9 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 			fn.ConsoleMsg(currentPeer, 0, "`5<`w%s ``entered, `w%d`` others here`5>", GetPlayerName(peer), world.PlayersIn)
 			fn.TalkBubble(currentPeer, PInfo(peer).NetID, 300, true, "`5<`w%s ``entered, `w%d`` others here`5>", GetPlayerName(peer), world.PlayersIn)
 			fn.OnSpawn(currentPeer, int16(PInfo(peer).NetID), PInfo(peer).PeerID, int32(PInfo(peer).SpawnX), int32(PInfo(peer).SpawnY), GetPlayerName(peer), PInfo(peer).Country, false, true, true, false)
-			fn.OnSpawn(peer, int16(PInfo(currentPeer).NetID), PInfo(currentPeer).PeerID, int32(PInfo(currentPeer).SpawnX), int32(PInfo(currentPeer).SpawnY), GetPlayerName(currentPeer), PInfo(currentPeer).Country, false, true, true, false)
-
+			fn.OnSpawn(peer, int16(PInfo(currentPeer).NetID), PInfo(currentPeer).PeerID, int32(PInfo(currentPeer).PosX), int32(PInfo(currentPeer).PosY), GetPlayerName(currentPeer), PInfo(currentPeer).Country, false, true, true, false)
+			fn.UpdateClothes(0, currentPeer)
 		}
-		break
 	}
 	fn.ListActiveWorld[world.Name] = int(world.PlayersIn)
 	return

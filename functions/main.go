@@ -3,16 +3,19 @@ package functions
 import (
 	"encoding/binary"
 	"fmt"
+
 	//	"github.com/bvinc/go-sqlite-lite/sqlite3"
+	"strconv"
+
 	"github.com/codecat/go-libs/log"
 	enet "github.com/eikarna/gotops"
+	"github.com/eikarna/gotps/functions/variants"
 	variant "github.com/eikarna/gotps/functions/variants"
 	pkt "github.com/eikarna/gotps/packet"
 	tankpacket "github.com/eikarna/gotps/packet/TankPacket"
 	player "github.com/eikarna/gotps/players"
 	"github.com/eikarna/gotps/utils"
 	"github.com/eikarna/gotps/worlds"
-	"strconv"
 )
 
 var ListActiveWorld = make(map[string]int)
@@ -278,57 +281,27 @@ func PunchLoop(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World)
 func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World) {
 	Coords := Tank.PunchX + (Tank.PunchY * uint32(world.SizeX))
 	//ConsoleMsg(peer, 0, "PunchX: %d, PunchY: %d, TotalXY: %d", Tank.PunchX, Tank.PunchY, Coords)
-
-	// Check if the tile being punched is not blank
-	if world.Tiles[Coords].Fg != 0 || world.Tiles[Coords].Bg != 0 {
-		// Check if the block is unbreakable
-		if world.Tiles[Coords].Fg == 6 || world.Tiles[Coords].Fg == 8 {
-			TalkBubble(peer, player.PlayerMap[peer].NetID, 0, false, "It's too strong to break.")
-			return
+	if world.Tiles[Coords].Fg == 6 || world.Tiles[Coords].Fg == 8 {
+		TalkBubble(peer, player.PInfo(peer).NetID, 0, false, "It's too strong to break.")
+		return
+	}
+	worlds.Worlds[world.Name].Tiles[Coords].Fg = 0
+	worlds.Worlds[world.Name].Tiles[Coords].Bg = 0
+	Tank.NetID = player.PInfo(peer).NetID
+	Tank.X = player.PInfo(peer).PosX
+	Tank.Y = player.PInfo(peer).PosY
+	bbb := Tank.Serialize(56, true)
+	aaa, err := enet.NewPacket(bbb, enet.PacketFlagReliable)
+	if err != nil {
+		log.Error("Error Packet 3:", err)
+	}
+	for _, currentPeer := range player.GetPeers(player.PlayerMap) {
+		if player.NotSafePlayer(currentPeer) {
+			continue
 		}
-		if world.Tiles[Coords].Fg == 7188 {
-			ModifyInventory(peer, int(world.Tiles[Coords].Fg), 1, player.PInfo(peer))
+		if player.PInfo(peer).CurrentWorld == player.PInfo(currentPeer).CurrentWorld {
+			currentPeer.SendPacket(aaa, 0)
 		}
-
-		// Update the tile to be blank
-		// world.Tiles[Coords].Fg = 0
-		// world.Tiles[Coords].Bg = 0
-		// Optionally, you may want to update other properties of the tile like Flags, Label, etc. if needed.
-		// PunchLoop(peer, Tank, world, 4)
-		world.Tiles[Coords].Fg = 0
-		world.Tiles[Coords].Bg = 0
-		testt := &tankpacket.TankPacket{
-			PacketType:     3,
-			NetID:          player.PInfo(peer).NetID,
-			CharacterState: Tank.CharacterState,
-			Value:          Tank.Value,
-			X:              Tank.X,
-			Y:              Tank.Y,
-			XSpeed:         Tank.XSpeed,
-			YSpeed:         Tank.YSpeed,
-			PunchX:         Tank.PunchX,
-			PunchY:         Tank.PunchY,
-		}
-		bbb := testt.Serialize(56, true)
-		aaa, err := enet.NewPacket(bbb, enet.PacketFlagReliable)
-		if err != nil {
-			log.Error("Error Packet 3:", err)
-		}
-		for _, currentPeer := range player.GetPeers(player.PlayerMap) {
-			if player.NotSafePlayer(currentPeer) {
-				continue
-			}
-			if player.PInfo(peer).CurrentWorld == player.PInfo(currentPeer).CurrentWorld {
-				currentPeer.SendPacket(aaa, 0)
-				break
-			}
-		}
-
-		// Update the world
-		worlds.Worlds[world.Name].Tiles[Coords] = world.Tiles[Coords]
-
-		// Log the action
-		//LogMsg(peer, "[Punch/Place] PunchX:%d, PunchY:%d, X:%d, Y:%d, Value:%d, NetID:%d", Tank.PunchX, Tank.PunchY, Tank.X, Tank.Y, Tank.Value, Tank.NetID)
 	}
 }
 
@@ -632,4 +605,33 @@ func UpdateClothes(delay int, peer enet.Peer) {
 	variant.InsertInt(pData.SkinColor)
 	variant.InsertTripleFloat(0, 0, 0)
 	variant.Send(peer)
+	return
+}
+
+func SetAccountHasSecured(peer enet.Peer) {
+	variant := variant.NewVariant(0, -1)
+	variant.InsertString("SetAccountHasSecured")
+	variant.InsertInt(1)
+	variant.Send(peer)
+	return
+}
+
+func SetRespawnPos(peer enet.Peer, pos int, delay int) {
+	variant := variant.NewVariant(delay, int(player.PInfo(peer).NetID))
+	variant.InsertString("SetRespawnPos")
+	variant.InsertInt(pos)
+	variant.Send(peer)
+	return
+}
+
+func OnSetFreezeState(peer enet.Peer, yes bool, delay int) {
+	variant := variants.NewVariant(delay, int(player.PInfo(peer).NetID))
+	variant.InsertString("OnSetFreezeState")
+	if yes {
+		variant.InsertInt(1)
+	} else {
+		variant.InsertInt(0)
+	}
+	variant.Send(peer)
+	return
 }
