@@ -3,7 +3,7 @@ package main
 import (
 	"sync"
 
-	"github.com/bvinc/go-sqlite-lite/sqlite3"
+	//	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/codecat/go-libs/log"
 	enet "github.com/eikarna/gotops"
 	clients "github.com/eikarna/gotps/clients"
@@ -20,24 +20,21 @@ var (
 )
 
 func main() {
-
-	// Open a SQLite database with connection pooling
-	db, err := sqlite3.Open("file:database.db?mode=rwc")
+	/*db, err := c.Open("database")
 	if err != nil {
-		log.Fatal(err.Error())
+		panic(err)
 	}
 	defer db.Close()
 
-	// Create a table if it doesn't exist
-	db.Exec(`CREATE TABLE IF NOT EXISTS worlds (
-	    name TEXT PRIMARY KEY,
-	    data BLOB
-	);`)
+	_, err = db.FindFirst(NewQuery("Worlds"))
+	if err != nil {
+		db.CreateCollection("Worlds")
+	}
 
-	db.Exec(`CREATE TABLE IF NOT EXISTS players (
-	    name TEXT PRIMARY KEY,
-	    data BLOB
-	);`)
+	_, err = db.FindFirst(NewQuery("Players"))
+	if err != nil {
+		db.CreateCollection("Players")
+	}*/
 
 	// Initialize enet
 	enet.Initialize()
@@ -58,7 +55,7 @@ func main() {
 	// The event loop
 	for true {
 		// Wait until the next event
-		ev := host.Service(100)
+		ev := host.Service(1000)
 
 		if ev != nil {
 			once.Do(func() { log.Info("Server Successfully started on 0.0.0.0:%d", GrowtopiaPort) })
@@ -71,12 +68,12 @@ func main() {
 			}
 		case enet.EventConnect:
 			{
-				clients.OnConnect(ev.GetPeer(), host, itemInfo, globalPeer, db) //Handle Client OnConnect
+				clients.OnConnect(ev.GetPeer(), host, itemInfo, globalPeer) //Handle Client OnConnect
 				break
 			}
 		case enet.EventDisconnect:
 			{
-				clients.OnDisConnect(ev.GetPeer(), host, itemInfo, globalPeer, db) //Handle Client OnDisConnect
+				clients.OnDisConnect(ev.GetPeer(), host, itemInfo, globalPeer) //Handle Client OnDisConnect
 				break
 			}
 
@@ -89,18 +86,25 @@ func main() {
 			switch packet.GetData()[0] { //Net Message Type
 			case 2:
 				{
-					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo, globalPeer, db)
+					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo, globalPeer)
 					break
 				}
 			case 3:
 				{
-					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo, globalPeer, db)
+					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo, globalPeer)
 					break
 				}
+			case 4:
+				{
+					clients.OnTankPacket(ev.GetPeer(), host, ev.GetPacket(), itemInfo, globalPeer)
+					break
+				}
+			case 22:
+				pkt.SendPacket(ev.GetPeer(), 21, "")
+				break
 			default:
 				{
-					clients.OnTankPacket(ev.GetPeer(), host, ev.GetPacket(), itemInfo, globalPeer, db)
-					// log.Error("Unhandled type packet: %d", packet.GetData()[0])
+					log.Error("Unhandled type packet: %d", packet.GetData()[0])
 					break
 				}
 			}

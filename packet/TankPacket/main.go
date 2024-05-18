@@ -2,6 +2,7 @@ package tankpacket
 
 import (
 	"encoding/binary"
+	// "github.com/codecat/go-libs/log"
 	"math"
 )
 
@@ -51,5 +52,6 @@ func (tank *TankPacket) SerializeFromMem(data []byte) *TankPacket {
 	tank.YSpeed = math.Float32frombits(binary.LittleEndian.Uint32(data[36:40]))
 	tank.PunchX = binary.LittleEndian.Uint32(data[44:48])
 	tank.PunchY = binary.LittleEndian.Uint32(data[48:52])
+	// log.Warn("Byte Data: %#v", data)
 	return tank
 }

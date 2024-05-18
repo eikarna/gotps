@@ -30,6 +30,18 @@ func NewVariant(delay int, NetID int) *Variant {
 	}
 }
 
+func NewVariantRaw() *Variant {
+	packetData := make([]byte, 61)
+	len := 61
+	binary.LittleEndian.PutUint32(packetData[0:4], uint32(4)) //message type
+	binary.LittleEndian.PutUint32(packetData[4:8], uint32(1)) //packet type variant
+	return &Variant{
+		index:      0,
+		len:        len,
+		packetData: packetData,
+	}
+}
+
 func (v *Variant) InsertInt(a1 int) {
 	data := make([]byte, v.len+2+4)
 	copy(data, v.packetData)
@@ -76,14 +88,14 @@ func (v *Variant) InsertDoubleFloat(a1 float32, a2 float32) {
 	v.len += 2 + 8
 	v.packetData[60] = byte(v.index)
 }
-func (v *Variant) InsertTripleFloat(a1 float32, a2 float32) {
+func (v *Variant) InsertTripleFloat(a1 float32, a2 float32, a3 float32) {
 	data := make([]byte, v.len+2+12)
 	copy(data, v.packetData)
 	data[v.len] = byte(v.index)
 	data[v.len+1] = 0x4
 	binary.LittleEndian.PutUint32(data[v.len+2:], uint32(a1))
 	binary.LittleEndian.PutUint32(data[v.len+6:], uint32(a2))
-	binary.LittleEndian.PutUint32(data[v.len+10:], uint32(a2))
+	binary.LittleEndian.PutUint32(data[v.len+10:], uint32(a3))
 	v.index++
 	v.packetData = data
 	v.len += 2 + 12

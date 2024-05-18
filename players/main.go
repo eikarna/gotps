@@ -1,13 +1,12 @@
 package players
 
 import (
-	"errors"
-	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/codecat/go-libs/log"
 	"github.com/eikarna/gotops"
-	"github.com/vmihailenco/msgpack/v5"
+	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var Players Player
@@ -24,35 +23,54 @@ const (
 )
 
 type ItemInfo struct {
-	ID  int
-	Qty int16
+	ID  int   `clover:"ID"`
+	Qty int16 `clover:"Qty"`
 }
 
+type Cloth struct {
+	Hair     float32 `clover:"Hair"`
+	Necklace float32 `clover:"Necklace"`
+	Pants    float32 `clover:"Pants"`
+	Shirt    float32 `clover:"Shirt"`
+	Feet     float32 `clover:"Feet"`
+	Back     float32 `clover:"Back"`
+	Mask     float32 `clover:"Mask"`
+	Face     float32 `clover:"Face"`
+	Hand     float32 `clover:"Hand"`
+}
+
+//var PlayerGuestNum = make([]int, 900)
+
 type Player struct {
-	TankIDName    string
-	TankIDPass    string
-	RequestedName string
-	Name          string
-	IpAddress     string
-	Country       string
-	UserID        uint32
-	NetID         uint32
-	Protocol      uint32
-	GameVersion   string
-	PlatformID    uint32
-	DeviceVersion uint32
-	MacAddr       string
-	Rid           string
-	Gid           string
-	PlayerAge     uint32
-	CurrentWorld  string
-	PosX          float32
-	PosY          float32
-	SpawnX        uint32
-	SpawnY        uint32
-	Inventory     []ItemInfo
-	InventorySize uint16
-	Roles         Role
+	TankIDName    string     `clover:"TankIDName"`
+	TankIDPass    string     `clover:"TankIDPass"`
+	RequestedName string     `clover:"RequestedName"`
+	Name          string     `clover:"Name"`
+	IpAddress     string     `clover:"IpAddress"`
+	Country       string     `clover:"Country"`
+	UserID        uint32     `clover:"UserID"`
+	NetID         uint32     `clover:"NetID"`
+	Protocol      uint32     `clover:"Protocol"`
+	GameVersion   string     `clover:"GameVersion"`
+	PlatformID    uint32     `clover:"PlatformID"`
+	DeviceVersion uint32     `clover:"DeviceVersion"`
+	MacAddr       string     `clover:"MacAddr"`
+	Rid           string     `clover:"Rid"`
+	Gid           string     `clover:"Gid"`
+	PlayerAge     uint32     `clover:"PlayerAge"`
+	CurrentWorld  string     `clover:"CurrentWorld"`
+	PosX          float32    `clover:"PosX"`
+	PosY          float32    `clover:"PosY"`
+	SpawnX        uint32     `clover:"SpawnX"`
+	SpawnY        uint32     `clover:"SpawnY"`
+	Inventory     []ItemInfo `clover:"Inventory"`
+	InventorySize uint16     `clover:"InventorySize"`
+	Roles         Role       `clover:"Roles"`
+	Clothes       Cloth      `clover:"Clothes"`
+	SkinColor     int        `clover:"SkinColor"`
+	Gems          int        `clover:"Gems"`
+	RotatedLeft   bool       `clover:"RotatedLeft"`
+	PeerID        uint32     `clover:"PeerID"`
 }
 
 var PlayerMap = make(map[enet.Peer]*Player)
@@ -169,15 +187,13 @@ func GetPlayerName(peer enet.Peer) string {
 		return ""
 	}
 	displayName := GetRoleNick(peer)
-	if len(displayName) != 0 {
-		displayName += " "
-	}
 
 	if GetPlayer(peer).TankIDName != "" {
 		displayName += GetPlayer(peer).TankIDName
 	} else {
 		displayName += GetPlayer(peer).RequestedName
 	}
+	displayName += "``"
 
 	return displayName
 }
@@ -206,76 +222,7 @@ func PInfo(peer enet.Peer) *Player {
 	return PlayerMap[peer]
 }
 
-// SaveWorld saves a single World struct to the database with the given name
-func SavePlayer(db *sqlite3.Conn, player Player, name string) error {
-	// Serialize World struct to MessagePack binary forma
-	/*name := ""
-	if len(player.TankIDName) > 0 && len(player.TankIDPass) > 0 {
-		name = player.TankIDName
-	} else {
-		name = player.RequestedName
-	}*/
-	playerBytes, err := msgpack.Marshal(player)
-	if err != nil {
-		return err
-	}
-
-	// Prepare statement for insertion
-	stmt, err := db.Prepare("INSERT INTO players (name, data) VALUES (?, ?)")
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	// Insert name and binary data into the database
-	stmt.Exec(name, playerBytes)
-	return nil
-}
-
-func LoadPlayer(db *sqlite3.Conn, name string) (*Player, error) {
-	var player Player
-
-	// Query the data
-	row, err := db.Prepare("SELECT data FROM players WHERE name = ?", name)
-
-	if err != nil {
-		log.Fatal(err.Error())
-		return nil, err
-	}
-	defer row.Close()
-
-	for {
-		hasRow, err := row.Step()
-		if err != nil {
-			log.Fatal(err.Error())
-
-			// panic("Error Parsing World: " + name)
-		}
-		if !hasRow {
-			// The query is finished
-			log.Fatal("Player %s Not Found in our database!", name)
-			return nil, errors.New("Player " + name + " Not Found in our database!")
-			break
-		}
-
-		// Deserialize MessagePack binary data into World struct
-		var playerBytes []byte
-		if err := row.Scan(&playerBytes); err != nil {
-			log.Fatal(err.Error())
-
-			return nil, err
-			break
-		}
-		if err := msgpack.Unmarshal(playerBytes, &player); err != nil {
-			log.Fatal(err.Error())
-			return nil, err
-			break
-		}
-	}
-	return &player, nil
-}
-
-func ParseUserData(db *sqlite3.Conn, text string, peer enet.Peer) {
+func ParseUserData(text string, peer enet.Peer) {
 	// Initialize a map to store key-value pairs
 	userData := make(map[string]string)
 
@@ -300,22 +247,16 @@ func ParseUserData(db *sqlite3.Conn, text string, peer enet.Peer) {
 	// var isGuest bool
 
 	// Convert protocol and platformID to uint32
-	protocol, err := strconv.ParseUint(userData["protocol"], 10, 32)
-	if err != nil {
-		log.Error("Error Protocol:", err)
-		return
-	}
-	platformID, err := strconv.ParseUint(userData["platformID"], 10, 32)
-	if err != nil {
-		log.Error("Error platformID:", err)
-		return
-	}
+	protocol := parseUint(userData["protocol"])
+	platformID := parseUint(userData["platformID"])
+
 	// Convert deviceVersion to uint32
-	deviceVersion, err := strconv.ParseUint(userData["deviceVersion"], 10, 32)
-	if err != nil {
-		log.Error("Error DeviceVersion:", err)
-		return
-	}
+	deviceVersion := parseUint(userData["deviceVersion"])
+
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+
+	userData["requestedName"] = userData["requestedName"] + "_" + strconv.Itoa(100+rand.Intn(899))
 
 	// Create a player struct
 	NewPlayerData := Player{
@@ -326,46 +267,44 @@ func ParseUserData(db *sqlite3.Conn, text string, peer enet.Peer) {
 		Gid:           userData["gid"],
 		Rid:           userData["rid"],
 		DeviceVersion: uint32(deviceVersion),
+		Roles:         5,
+		PeerID:        peer.GetConnectID(),
 	}
 
 	// Check if TankIDName exists
 	if _, ok := userData["tankIDName"]; ok {
 		// TankIDName exists, parse and save as registered user
 		// isGuest = false
-		IsRegistered, err := LoadPlayer(db, userData["tankIDName"])
-		if err != nil {
+		IsRegistered := PlayerMap[peer]
+		if IsRegistered == nil {
 			NewPlayerData.TankIDName = userData["tankIDName"]
 			NewPlayerData.TankIDPass = userData["tankIDPass"]
 			NewPlayerData.Name = userData["tankIDName"]
-			SavePlayer(db, NewPlayerData, NewPlayerData.TankIDName)
+			//UpsertPlayer(peer, db, NewPlayerData.TankIDName)
 			// PlayerMap[peer].Peer = peer
+			log.Info("Growid player loaded & saved: %s", NewPlayerData.Name)
 			PlayerMap[peer] = &NewPlayerData
 		} else {
 			// PlayerMap[peer].Peer = peer
 			PlayerMap[peer] = IsRegistered
+			log.Info("Growid player loaded: %s", PlayerMap[peer].Name)
 		}
 	} else {
 		// TankIDName does not exist, save as guest user
 		// isGuest = true
-		IsRegistered, err := LoadPlayer(db, userData["rid"])
-		if err != nil {
+		IsRegistered := PlayerMap[peer]
+		if IsRegistered == nil {
 			NewPlayerData.Name = userData["requestedName"]
-			SavePlayer(db, NewPlayerData, NewPlayerData.Rid)
+			//UpsertPlayer(peer, db, NewPlayerData.Rid)
 			//PlayerMap[peer].Peer = peer
 			PlayerMap[peer] = &NewPlayerData
+			log.Info("Guest player loaded & saved: %s", NewPlayerData.Name)
 		} else {
 			// PlayerMap[peer].Peer = peer
 			PlayerMap[peer] = IsRegistered
+			log.Info("Guest player loaded: %s", PlayerMap[peer].Name)
 		}
 	}
-
-	// Optionally, you can log whether the player is registered or a guest
-	/*if isGuest {
-		log.Info("Guest player saved: %s", NewPlayerData.RequestedName)
-	} else {
-		log.Info("Registered player saved: %s", NewPlayerData.TankIDName)
-	}
-	PlayerMap[peer] = &NewPlayerData*/
 }
 
 // parseUint parses a uint32 from a string and returns 0 if parsing fails
