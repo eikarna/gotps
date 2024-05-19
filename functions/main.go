@@ -63,6 +63,8 @@ func ModifyInventory(peer enet.Peer, itemId int, count int, pl *player.Player) {
 		log.Error("Packet type 13:", err.Error())
 	}
 	peer.SendPacket(Packet, 0)
+	pl, ReducePack, ReducedPacket, Packet = nil, nil, nil, nil
+	return
 }
 
 func OnWrench(peer enet.Peer, Tank *tankpacket.TankPacket, name string) {
@@ -70,6 +72,7 @@ func OnWrench(peer enet.Peer, Tank *tankpacket.TankPacket, name string) {
 }
 
 func AddTile(peer enet.Peer, Tank *tankpacket.TankPacket) {
+	Coords := Tank.PunchX + (Tank.PunchY * uint32(worlds.Worlds[player.PInfo(peer).CurrentWorld].SizeX))
 	PlacePack := &tankpacket.TankPacket{
 		PacketType:     3,
 		NetID:          player.PInfo(peer).NetID,
@@ -83,8 +86,9 @@ func AddTile(peer enet.Peer, Tank *tankpacket.TankPacket) {
 		PunchY:         Tank.PunchY,
 	}
 	PlacePacket := PlacePack.Serialize(56, true)
+	worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[Coords].Fg = int16(Tank.Value)
+	worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[Coords].Bg = int16(Tank.Value)
 	TalkBubble(peer, player.PInfo(peer).NetID, 100, false, "ID: %d, Qty: %d", Tank.Value, player.GetCountItemFromInventory(peer, int(Tank.Value)))
-
 	Packet, err := enet.NewPacket(PlacePacket, enet.PacketFlagReliable)
 	if err != nil {
 		log.Error("Error Packet 3:", err)
@@ -97,6 +101,8 @@ func AddTile(peer enet.Peer, Tank *tankpacket.TankPacket) {
 			currentPeer.SendPacket(Packet, 0)
 		}
 	}
+	Tank, PlacePacket, Packet = nil, nil, nil
+	return
 }
 
 /*
@@ -303,6 +309,8 @@ func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World) {
 			currentPeer.SendPacket(aaa, 0)
 		}
 	}
+	Tank, bbb, aaa, world = nil, nil, nil, nil
+	return
 }
 
 func SendWorldMenu(peer enet.Peer) {
@@ -365,6 +373,7 @@ func TextOverlay(peer enet.Peer, text string) {
 	variant.InsertString("OnTextOverlay")
 	variant.InsertString(text)
 	variant.Send(peer)
+	return
 }
 
 func SetHasGrowID(peer enet.Peer) {
@@ -378,6 +387,7 @@ func SetHasGrowID(peer enet.Peer) {
 	variant.InsertString(pl.TankIDName)
 	variant.InsertString(pl.TankIDPass)
 	variant.Send(peer)
+	return
 }
 
 func UpdateWorld(peer enet.Peer, name string) {
@@ -447,6 +457,8 @@ func UpdateWorld(peer enet.Peer, name string) {
 		panic(err)
 	}
 	peer.SendPacket(packet, 0)
+	worldPacket = nil
+	return
 }
 
 func UpdateInventory(peer enet.Peer) {
@@ -494,6 +506,7 @@ func UpdateInventory(peer enet.Peer) {
 		log.Error(err.Error())
 	}
 	peer.SendPacket(packet, 0)
+	d_ = nil
 	return
 }
 
@@ -513,15 +526,6 @@ func ConsoleMsg(peer enet.Peer, delay int, a ...interface{}) {
 	return
 }
 
-func BroadcastConsoleMsg(host enet.Host, a ...interface{}) {
-	msg := fmt.Sprintf(a[0].(string), a[1:]...)
-	variant := variant.NewVariant(0, -1)
-	variant.InsertString("OnConsoleMessage")
-	variant.InsertString(msg)
-	variant.SendBroadcast(host)
-	return
-}
-
 func TalkBubble(peer enet.Peer, netID uint32, delay int, isOverlay bool, a ...interface{}) {
 	msg := fmt.Sprintf(a[0].(string), a[1:]...)
 	variant := variant.NewVariant(delay, -1)
@@ -534,18 +538,6 @@ func TalkBubble(peer enet.Peer, netID uint32, delay int, isOverlay bool, a ...in
 	return
 }
 
-func BroadcastTalkBubble(host enet.Host, netID uint32, isOverlay bool, a ...interface{}) {
-	msg := fmt.Sprintf(a[0].(string), a[1:]...)
-	variant := variant.NewVariant(0, -1)
-	variant.InsertString("OnTalkBubble")
-	variant.InsertUnsignedInt(netID)
-	variant.InsertInt(utils.BoolToInt(isOverlay))
-	variant.InsertInt(utils.BoolToInt(isOverlay))
-	variant.InsertString(msg)
-	variant.SendBroadcast(host)
-	return
-}
-
 func OnSuperMain(peer enet.Peer, itemHash uint32) {
 
 	variant := variant.NewVariant(0, -1)
@@ -554,7 +546,7 @@ func OnSuperMain(peer enet.Peer, itemHash uint32) {
 	variant.InsertString("www.growtopia1.com")
 	variant.InsertString("cache/")
 	variant.InsertString("cc.cz.madkite.freedom org.aqua.gg idv.aqua.bulldog com.cih.gamecih2 com.cih.gamecih com.cih.game_cih cn.maocai.gamekiller com.gmd.speedtime org.dax.attack com.x0.strai.frep com.x0.strai.free org.cheatengine.cegui org.sbtools.gamehack com.skgames.traffikrider org.sbtoods.gamehaca com.skype.ralder org.cheatengine.cegui.xx.multi1458919170111 com.prohiro.macro me.autotouch.autotouch com.cygery.repetitouch.free com.cygery.repetitouch.pro com.proziro.zacro com.slash.gamebuster")
-	variant.InsertString("proto=207|choosemusic=audio/mp3/lobby.mp3|active_holiday=19|wing_week_day=0|ubi_week_day=2|server_tick=123665344|clash_active=0|drop_lavacheck_faster=1|isPayingUser=2|usingStoreNavigation=1|enableInventoryTab=1|bigBackpack=1|m_clientBits=0|eventButtons={\"EventButtonData\":[{\"Components\":[{\"Enabled\":false,\"Id\":\"Overlay\",\"Parameters\":\"target_child_entity_name:overlay_layer;var_name:alpha;target:0;interpolation:1;on_finish:1;duration_ms:1000;delayBeforeStartMS:1000\",\"Type\":\"InterpolateComponent\"}],\"DialogName\":\"openLnySparksPopup\",\"IsActive\":false,\"Name\":\"LnyButton\",\"Priority\":1,\"Text\":\"0/5\",\"TextOffset\":\"0.01,0.2\",\"Texture\":\"interface/large/event_button3.rttex\",\"TextureCoordinates\":\"0,2\"},{\"Components\":[{\"Enabled\":true,\"Parameters\":\"\",\"Type\":\"RenderDailyChallengeComponent\"}],\"DialogName\":\"dailychallengemenu\",\"IsActive\":false,\"Name\":\"DailyChallenge\",\"Priority\":2},{\"Components\":[{\"Enabled\":false,\"Id\":\"Overlay\",\"Parameters\":\"target_child_entity_name:overlay_layer;var_name:alpha;target:0;interpolation:1;on_finish:1;duration_ms:1000;delayBeforeStartMS:1000\",\"Type\":\"InterpolateComponent\"}],\"DialogName\":\"openStPatrickPiggyBank\",\"IsActive\":false,\"Name\":\"StPatrickPBButton\",\"Priority\":1,\"Text\":\"0/0\",\"TextOffset\":\"0.00,0.05\",\"Texture\":\"interface/large/event_button4.rttex\",\"TextureCoordinates\":\"0,0\"},{\"DialogName\":\"show_bingo_ui\",\"IsActive\":false,\"Name\":\"Bingo_Button\",\"Priority\":1,\"Texture\":\"interface/large/event_button4.rttex\"}]}")
+	variant.InsertString("proto=207|choosemusic=audio/mp3/about_theme.mp3|active_holiday=6|wing_week_day=0|ubi_week_day=2|server_tick=123665344|clash_active=0|drop_lavacheck_faster=1|isPayingUser=2|usingStoreNavigation=1|enableInventoryTab=1|bigBackpack=1|m_clientBits=0|eventButtons={\"EventButtonData\":[{\"Components\":[{\"Enabled\":true,\"Id\":\"Overlay\",\"Parameters\":\"target_child_entity_name:overlay_layer;var_name:alpha;target:0;interpolation:1;on_finish:1;duration_ms:1000;delayBeforeStartMS:1000\",\"Type\":\"InterpolateComponent\"}],\"DialogName\":\"openLnySparksPopup\",\"IsActive\":false,\"Name\":\"LnyButton\",\"Priority\":1,\"Text\":\"0/5\",\"TextOffset\":\"0.01,0.2\",\"Texture\":\"interface/large/event_button3.rttex\",\"TextureCoordinates\":\"0,2\"},{\"Components\":[{\"Enabled\":true,\"Parameters\":\"\",\"Type\":\"RenderDailyChallengeComponent\"}],\"DialogName\":\"dailychallengemenu\",\"IsActive\":false,\"Name\":\"DailyChallenge\",\"Priority\":2},{\"Components\":[{\"Enabled\":false,\"Id\":\"Overlay\",\"Parameters\":\"target_child_entity_name:overlay_layer;var_name:alpha;target:0;interpolation:1;on_finish:1;duration_ms:1000;delayBeforeStartMS:1000\",\"Type\":\"InterpolateComponent\"}],\"DialogName\":\"openStPatrickPiggyBank\",\"IsActive\":false,\"Name\":\"StPatrickPBButton\",\"Priority\":1,\"Text\":\"0/0\",\"TextOffset\":\"0.00,0.05\",\"Texture\":\"interface/large/event_button4.rttex\",\"TextureCoordinates\":\"0,0\"},{\"DialogName\":\"show_bingo_ui\",\"IsActive\":false,\"Name\":\"Bingo_Button\",\"Priority\":1,\"Texture\":\"interface/large/event_button4.rttex\"}]}")
 	//p.Insert("654171113"); //tribute_data
 	variant.Send(peer)
 	return

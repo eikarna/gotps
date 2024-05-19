@@ -44,8 +44,8 @@ func OnTileUpdate(packet enet.Packet, peer enet.Peer, Tank *tankpacket.TankPacke
 						PunchX:         Tank.PunchX,
 						PunchY:         Tank.PunchY,
 						CharacterState: Tank.CharacterState,
-						NetID:          PInfo(peer).UserID,
-						Value:          Tank.Value,
+						NetID:          PInfo(peer).NetID,
+						Value:          PInfo(peer).UserID,
 						/*
 							X:              decodedWp.X,
 							Y:              decodedWp.Y,							XSpeed:         decodedWp.XSpeed,
@@ -68,13 +68,14 @@ func OnTileUpdate(packet enet.Packet, peer enet.Peer, Tank *tankpacket.TankPacke
 					}
 					fn.ModifyInventory(peer, int(Tank.Value), -1, PInfo(peer))
 					fn.AddTile(peer, Tank)
-					worlds.Worlds[PInfo(peer).CurrentWorld].Tiles[Coords].Fg = int16(Tank.Value)
 					worlds.Worlds[PInfo(peer).CurrentWorld].OwnerUid = int32(PInfo(peer).UserID)
+					lockPack, lockPacket, packet = nil, nil, nil
 					break
 				} else {
 					fn.TalkBubble(peer, PInfo(peer).NetID, 0, false, "Someone has been used locks!")
 					break
 				}
+				fn.TalkBubble(peer, PInfo(peer).NetID, 100, false, "Updating Block at %d", Coords)
 				//fn.UpdateInventory(peer)
 				/*WorldPack := &worldpacket.WorldPacket{
 				          PacketType:   15,
@@ -98,16 +99,19 @@ func OnTileUpdate(packet enet.Packet, peer enet.Peer, Tank *tankpacket.TankPacke
 				          }
 				  }*/
 				//go worlds.SaveWorld(PInfo(peer).CurrentWorld, *world)
-				fn.TalkBubble(peer, PInfo(peer).NetID, 100, false, "Updating Block at %d", Coords)
 			}
 			break
 		}
 	default:
 		{
 			// fn.OnPlace(peer, Tank)
+			// Coords := Tank.PunchX + (Tank.PunchY * uint32(world.SizeX))
+			fn.ModifyInventory(peer, int(Tank.Value), -1, PInfo(peer))
+			fn.AddTile(peer, Tank)
 			decodedPack := &tankpacket.TankPacket{}
 			decodedPack.SerializeFromMem(packet.GetData()[4:])
 			log.Info("Got Unknown Packet with type %d: %#v", decodedPack.PacketType, decodedPack)
+			decodedPack = nil
 			break
 		}
 
@@ -284,7 +288,7 @@ func OnChatInput(peer enet.Peer, host enet.Host, text string) {
 
 func OnPlayerMove(peer enet.Peer, packet enet.Packet) {
 	movePacket := packet.GetData()
-	log.Warn("%#v", pkt.GetMessageFromPacket(packet))
+	// log.Warn("%#v", pkt.GetMessageFromPacket(packet))
 	PInfo(peer).RotatedLeft = (binary.LittleEndian.Uint32(movePacket[16:20]) & 0x10) != 0
 	PInfo(peer).PosX = math.Float32frombits(binary.LittleEndian.Uint32(movePacket[28:32]))
 	PInfo(peer).PosY = math.Float32frombits(binary.LittleEndian.Uint32(movePacket[32:36]))
@@ -302,6 +306,7 @@ func OnPlayerMove(peer enet.Peer, packet enet.Packet) {
 			currentPeer.SendPacket(packet, 0)
 		}
 	}
+	movePacket, packet = nil, nil
 	return
 }
 
@@ -373,6 +378,9 @@ func OnConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalPeer
 
 func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalPeer []enet.Peer) {
 	log.Info("New Client Disconnected %s", peer.GetAddress().String())
+	if NotSafePlayer(peer) {
+		return
+	}
 	if PInfo(peer).CurrentWorld != "" {
 		OnPlayerExitWorld(peer, worlds.Worlds[PInfo(peer).CurrentWorld])
 	}
@@ -404,11 +412,14 @@ func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalP
 }
 
 func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.ItemInfo, globalPeer []enet.Peer) {
-	log.Info("TextPacket: %s", text)
+	//g.Info("TextPacket: %s", text)
 	if strings.Contains(text, "requestedName|") {
 		fn.OnSuperMain(peer, items.GetItemHash())
-		ParseUserData(text, peer)
+		ParseUserData(text, host, peer, fn.ConsoleMsg)
 	} else if len(text) > 6 && text[:6] == "action" {
+		if NotSafePlayer(peer) {
+			return
+		}
 		lengthText := 7 + len(strings.Split(text[7:], "\n")[0])
 		switch text[7:lengthText] {
 		case "enter_game":
@@ -493,7 +504,7 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 				if strings.HasPrefix(text[7:], "quit_to_exit") {
 					OnPlayerExitWorld(peer, worlds.Worlds[PInfo(peer).CurrentWorld])
 				} else {
-					//fn.LogMsg(peer, "Unhandled Action Packet type: %s", text[7:])
+					log.Warn("Unhandled Action Packet type: %s", text[7:])
 				}
 				break
 			}
@@ -509,15 +520,14 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 	if NotSafePlayer(peer) {
 		return
 	}
-	if len(packet.GetData()) < 3 {
+	if len(packet.GetData()) < 60 {
+		fn.TextOverlay(peer, "Invalid Tank Packet?? Disconnecting..")
+		if PInfo(peer).CurrentWorld != "" {
+			OnPlayerExitWorld(peer, worlds.Worlds[PInfo(peer).CurrentWorld])
+		}
+		peer.DisconnectLater(0)
 		return
 	}
-
-	/*world, err := worlds.LoadWorld(PInfo(peer).CurrentWorld)
-	if err != nil {
-		fn.ConsoleMsg(peer, 0, "Some data is missing in this world! exiting..")
-		OnPlayerExitWorld(peer, world)
-	}*/
 	if PInfo(peer).CurrentWorld != "" {
 		world, err := worlds.GetWorld(PInfo(peer).CurrentWorld)
 		if err != nil {
@@ -556,7 +566,6 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 							if PInfo(currentPeer).CurrentWorld != PInfo(peer).CurrentWorld {
 								fn.UpdateClothes(0, currentPeer)
 							}
-							break
 						}
 					}
 				}

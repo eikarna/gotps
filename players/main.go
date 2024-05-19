@@ -8,6 +8,7 @@ import (
 
 	"github.com/codecat/go-libs/log"
 	enet "github.com/eikarna/gotops"
+	// fn "github.com/eikarna/gotps/functions"
 )
 
 var Players Player
@@ -223,7 +224,7 @@ func PInfo(peer enet.Peer) *Player {
 	return PlayerMap[peer]
 }
 
-func ParseUserData(text string, peer enet.Peer) {
+func ParseUserData(text string, host enet.Host, peer enet.Peer, ConsoleMsg func(peer enet.Peer, delay int, a ...interface{})) {
 	// Initialize a map to store key-value pairs
 	userData := make(map[string]string)
 
@@ -241,68 +242,74 @@ func ParseUserData(text string, peer enet.Peer) {
 		// Store the key-value pair in the userData map
 		userData[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
 	}
+	peerId := peer.GetConnectID()
+	for _, currentPeer := range host.ConnectedPeers() {
+		/*log.Info("CurrentPeer Data: %#v", currentPeer.GetData())
+		if currentPeer.GetData() == nil {
+			log.Info("Peer: %#v | CurrentPeer: %#v not have data.", peer, currentPeer)
+			continue
+		}*/
+		if NotSafePlayer(currentPeer) {
+			// Now you can access the parsed key-value pairs from the userData map
+			// var isGuest bool
 
-	print(text)
+			// Convert protocol and platformID to uint32
+			protocol := parseUint(userData["protocol"])
 
-	// Now you can access the parsed key-value pairs from the userData map
-	// var isGuest bool
+			// Convert deviceVersion to uint32
+			deviceVersion := parseUint(userData["deviceVersion"])
 
-	// Convert protocol and platformID to uint32
-	protocol := parseUint(userData["protocol"])
+			// Seed the random number generator
+			rand.Seed(time.Now().UnixNano())
 
-	// Convert deviceVersion to uint32
-	deviceVersion := parseUint(userData["deviceVersion"])
+			userData["requestedName"] = userData["requestedName"] + "_" + strconv.Itoa(100+rand.Intn(899))
 
-	// Seed the random number generator
-	rand.Seed(time.Now().UnixNano())
+			// Create a player struct
+			NewPlayerData := Player{
+				RequestedName: userData["requestedName"],
+				Protocol:      uint32(protocol),
+				Country:       userData["country"],
+				PlatformID:    userData["platformID"],
+				Gid:           userData["gid"],
+				Rid:           userData["rid"],
+				DeviceVersion: uint32(deviceVersion),
+				Roles:         5,
+				PeerID:        peerId,
+				SkinColor:     0,
+			}
 
-	userData["requestedName"] = userData["requestedName"] + "_" + strconv.Itoa(100+rand.Intn(899))
-
-	// Create a player struct
-	NewPlayerData := Player{
-		RequestedName: userData["requestedName"],
-		Protocol:      uint32(protocol),
-		Country:       userData["country"],
-		PlatformID:    userData["platformID"],
-		Gid:           userData["gid"],
-		Rid:           userData["rid"],
-		DeviceVersion: uint32(deviceVersion),
-		Roles:         5,
-		PeerID:        peer.GetConnectID(),
-	}
-
-	// Check if TankIDName exists
-	if _, ok := userData["tankIDName"]; ok {
-		// TankIDName exists, parse and save as registered user
-		// isGuest = false
-		IsRegistered := PlayerMap[peer]
-		if IsRegistered == nil {
-			NewPlayerData.TankIDName = userData["tankIDName"]
-			NewPlayerData.TankIDPass = userData["tankIDPass"]
-			NewPlayerData.Name = userData["tankIDName"]
-			//UpsertPlayer(peer, db, NewPlayerData.TankIDName)
-			// PlayerMap[peer].Peer = peer
-			log.Info("Growid player loaded & saved: %s", NewPlayerData.Name)
-			PlayerMap[peer] = &NewPlayerData
+			// Check if TankIDName exists
+			if _, ok := userData["tankIDName"]; ok {
+				// TankIDName exists, parse and save as registered user
+				IsRegistered := PlayerMap[peer]
+				if IsRegistered == nil {
+					NewPlayerData.TankIDName = userData["tankIDName"]
+					NewPlayerData.TankIDPass = userData["tankIDPass"]
+					NewPlayerData.Name = userData["tankIDName"]
+					log.Info("Growid player loaded & saved: %s", NewPlayerData.Name)
+					PlayerMap[peer] = &NewPlayerData
+				} else {
+					PlayerMap[peer] = IsRegistered
+					log.Info("Growid player loaded: %s", PlayerMap[peer].Name)
+				}
+			} else {
+				// TankIDName does not exist, save as guest user
+				IsRegistered := PlayerMap[peer]
+				if IsRegistered == nil {
+					NewPlayerData.Name = userData["requestedName"]
+					PlayerMap[peer] = &NewPlayerData
+					log.Info("Guest player loaded & saved: %s", NewPlayerData.Name)
+				} else {
+					PlayerMap[peer] = IsRegistered
+					log.Info("Guest player loaded: %s", PlayerMap[peer].Name)
+				}
+			}
 		} else {
-			// PlayerMap[peer].Peer = peer
-			PlayerMap[peer] = IsRegistered
-			log.Info("Growid player loaded: %s", PlayerMap[peer].Name)
-		}
-	} else {
-		// TankIDName does not exist, save as guest user
-		// isGuest = true
-		IsRegistered := PlayerMap[peer]
-		if IsRegistered == nil {
-			NewPlayerData.Name = userData["requestedName"]
-			//UpsertPlayer(peer, db, NewPlayerData.Rid)
-			//PlayerMap[peer].Peer = peer
-			PlayerMap[peer] = &NewPlayerData
-			log.Info("Guest player loaded & saved: %s", NewPlayerData.Name)
-		} else {
-			// PlayerMap[peer].Peer = peer
-			PlayerMap[peer] = IsRegistered
-			log.Info("Guest player loaded: %s", PlayerMap[peer].Name)
+			if strings.ToLower(PInfo(currentPeer).TankIDName) == strings.ToLower(userData["tankIDName"]) && strings.ToLower(PInfo(currentPeer).TankIDPass) == strings.ToLower(userData["tankIDPass"]) && PInfo(currentPeer).PeerID != peerId {
+				ConsoleMsg(peer, 0, "4Already Logged In?`` It seems that this account already logged in by somebody else.")
+				ConsoleMsg(currentPeer, 0, "4Already Logged In?`` It seems that this account already logged in by somebody else.")
+				currentPeer.DisconnectLater(0)
+			}
 		}
 	}
 }

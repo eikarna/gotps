@@ -20,22 +20,6 @@ var (
 )
 
 func main() {
-	/*db, err := c.Open("database")
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
-
-	_, err = db.FindFirst(NewQuery("Worlds"))
-	if err != nil {
-		db.CreateCollection("Worlds")
-	}
-
-	_, err = db.FindFirst(NewQuery("Players"))
-	if err != nil {
-		db.CreateCollection("Players")
-	}*/
-
 	// Initialize enet
 	enet.Initialize()
 	// Create a host listening on 0.0.0.0:17091
@@ -44,6 +28,9 @@ func main() {
 		log.Error("Couldn't create host: %s", err.Error())
 		return
 	}
+
+	// Print IP Server Address and it's Port
+	log.Info("IP Address Server: %s, Port: %d", host.GetAddress().String(), host.GetAddress().GetPort())
 
 	// GTPS Support
 	host.EnableChecksum()
