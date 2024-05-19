@@ -3,8 +3,6 @@ package functions
 import (
 	"encoding/binary"
 	"fmt"
-
-	//	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"strconv"
 
 	"github.com/codecat/go-libs/log"
@@ -20,12 +18,12 @@ import (
 
 var ListActiveWorld = make(map[string]int)
 
-func OnRemove(peer enet.Peer, netid int) {
+func OnRemove(peer enet.Peer, netid uint32) {
+	log.Warn("OnRemove netID: %s", fmt.Sprint(netid))
 	variant := variant.NewVariant(0, -1)
 	variant.InsertString("OnRemove")
-	variant.InsertString("netID|" + strconv.Itoa(netid) + "\n")
+	variant.InsertString("netID|" + fmt.Sprint(netid))
 	variant.Send(peer)
-	return
 }
 
 func OnDialogRequest(peer enet.Peer, dialog string, delay int) {
@@ -33,7 +31,6 @@ func OnDialogRequest(peer enet.Peer, dialog string, delay int) {
 	variant.InsertString("OnDialogRequest")
 	variant.InsertString(dialog)
 	variant.Send(peer)
-	return
 }
 
 func ModifyInventory(peer enet.Peer, itemId int, count int, pl *player.Player) {
@@ -64,7 +61,6 @@ func ModifyInventory(peer enet.Peer, itemId int, count int, pl *player.Player) {
 	}
 	peer.SendPacket(Packet, 0)
 	pl, ReducePack, ReducedPacket, Packet = nil, nil, nil, nil
-	return
 }
 
 func OnWrench(peer enet.Peer, Tank *tankpacket.TankPacket, name string) {
@@ -102,7 +98,6 @@ func AddTile(peer enet.Peer, Tank *tankpacket.TankPacket) {
 		}
 	}
 	Tank, PlacePacket, Packet = nil, nil, nil
-	return
 }
 
 /*
@@ -310,7 +305,6 @@ func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World) {
 		}
 	}
 	Tank, bbb, aaa, world = nil, nil, nil, nil
-	return
 }
 
 func SendWorldMenu(peer enet.Peer) {
@@ -342,7 +336,6 @@ func SendWorldMenu(peer enet.Peer) {
 	variant.InsertString("OnRequestWorldSelectMenu")
 	variant.InsertString(world_packet)
 	variant.Send(peer)
-	return
 }
 
 func UpdateName(peer enet.Peer, name string) {
@@ -373,7 +366,6 @@ func TextOverlay(peer enet.Peer, text string) {
 	variant.InsertString("OnTextOverlay")
 	variant.InsertString(text)
 	variant.Send(peer)
-	return
 }
 
 func SetHasGrowID(peer enet.Peer) {
@@ -387,7 +379,6 @@ func SetHasGrowID(peer enet.Peer) {
 	variant.InsertString(pl.TankIDName)
 	variant.InsertString(pl.TankIDPass)
 	variant.Send(peer)
-	return
 }
 
 func UpdateWorld(peer enet.Peer, name string) {
@@ -458,7 +449,6 @@ func UpdateWorld(peer enet.Peer, name string) {
 	}
 	peer.SendPacket(packet, 0)
 	worldPacket = nil
-	return
 }
 
 func UpdateInventory(peer enet.Peer) {
@@ -469,12 +459,14 @@ func UpdateInventory(peer enet.Peer) {
 	if len(pl.Inventory) < 1 || pl.InventorySize < 1 {
 		//NewInvent := pl.Inventory
 		if pl.InventorySize == 0 {
-			pl.InventorySize = 30
+			pl.InventorySize = 32
 		}
 		itemsToAdd := []player.ItemInfo{
 			{ID: 18, Qty: 1},
 			{ID: 32, Qty: 1},
 			{ID: 7188, Qty: 3},
+			{ID: 2, Qty: 200},
+			{ID: 5480, Qty: 1},
 		}
 		for _, item := range itemsToAdd {
 			pl.Inventory = append(pl.Inventory, item)
@@ -507,7 +499,6 @@ func UpdateInventory(peer enet.Peer) {
 	}
 	peer.SendPacket(packet, 0)
 	d_ = nil
-	return
 }
 
 /*func SendDoor(peer enet.Peer) {
@@ -523,7 +514,6 @@ func ConsoleMsg(peer enet.Peer, delay int, a ...interface{}) {
 	variant.InsertString("OnConsoleMessage")
 	variant.InsertString(msg)
 	variant.Send(peer)
-	return
 }
 
 func TalkBubble(peer enet.Peer, netID uint32, delay int, isOverlay bool, a ...interface{}) {
@@ -535,7 +525,6 @@ func TalkBubble(peer enet.Peer, netID uint32, delay int, isOverlay bool, a ...in
 	variant.InsertInt(utils.BoolToInt(isOverlay))
 	variant.InsertInt(utils.BoolToInt(isOverlay))
 	variant.Send(peer)
-	return
 }
 
 func OnSuperMain(peer enet.Peer, itemHash uint32) {
@@ -549,19 +538,16 @@ func OnSuperMain(peer enet.Peer, itemHash uint32) {
 	variant.InsertString("proto=207|choosemusic=audio/mp3/about_theme.mp3|active_holiday=6|wing_week_day=0|ubi_week_day=2|server_tick=123665344|clash_active=0|drop_lavacheck_faster=1|isPayingUser=2|usingStoreNavigation=1|enableInventoryTab=1|bigBackpack=1|m_clientBits=0|eventButtons={\"EventButtonData\":[{\"Components\":[{\"Enabled\":true,\"Id\":\"Overlay\",\"Parameters\":\"target_child_entity_name:overlay_layer;var_name:alpha;target:0;interpolation:1;on_finish:1;duration_ms:1000;delayBeforeStartMS:1000\",\"Type\":\"InterpolateComponent\"}],\"DialogName\":\"openLnySparksPopup\",\"IsActive\":false,\"Name\":\"LnyButton\",\"Priority\":1,\"Text\":\"0/5\",\"TextOffset\":\"0.01,0.2\",\"Texture\":\"interface/large/event_button3.rttex\",\"TextureCoordinates\":\"0,2\"},{\"Components\":[{\"Enabled\":true,\"Parameters\":\"\",\"Type\":\"RenderDailyChallengeComponent\"}],\"DialogName\":\"dailychallengemenu\",\"IsActive\":false,\"Name\":\"DailyChallenge\",\"Priority\":2},{\"Components\":[{\"Enabled\":false,\"Id\":\"Overlay\",\"Parameters\":\"target_child_entity_name:overlay_layer;var_name:alpha;target:0;interpolation:1;on_finish:1;duration_ms:1000;delayBeforeStartMS:1000\",\"Type\":\"InterpolateComponent\"}],\"DialogName\":\"openStPatrickPiggyBank\",\"IsActive\":false,\"Name\":\"StPatrickPBButton\",\"Priority\":1,\"Text\":\"0/0\",\"TextOffset\":\"0.00,0.05\",\"Texture\":\"interface/large/event_button4.rttex\",\"TextureCoordinates\":\"0,0\"},{\"DialogName\":\"show_bingo_ui\",\"IsActive\":false,\"Name\":\"Bingo_Button\",\"Priority\":1,\"Texture\":\"interface/large/event_button4.rttex\"}]}")
 	//p.Insert("654171113"); //tribute_data
 	variant.Send(peer)
-	return
 }
 
 func LogMsg(peer enet.Peer, a ...interface{}) {
 	msg := fmt.Sprintf(a[0].(string), a[1:]...)
 	pkt.SendPacket(peer, 3, "action|log\nmsg|"+msg)
-	return
 }
 
 func PlayMsg(peer enet.Peer, delay int, name string) {
 	msg := "action|play_sfx\nfile|" + name + "\ndelayMS|" + strconv.Itoa(delay)
 	pkt.SendPacket(peer, 3, msg)
-	return
 }
 
 func OnSpawn(peer enet.Peer, netid int16, userid uint32, posX int32, posY int32, username string, country string, invis bool, mstate bool, smsate bool, local bool) {
@@ -583,11 +569,9 @@ func OnSpawn(peer enet.Peer, netid int16, userid uint32, posX int32, posY int32,
 	variant.InsertString("OnSpawn")
 	variant.InsertString(spawnAvatar)
 	variant.Send(peer)
-	log.Info(spawnAvatar)
-	return
 }
 
-func UpdateClothes(delay int, peer enet.Peer) {
+func UpdateClothes(delay int, peer, otherPeer enet.Peer) {
 	pData := player.PInfo(peer)
 	variant := variant.NewVariant(delay, int(player.PInfo(peer).NetID))
 	variant.InsertString("OnSetClothing")
@@ -596,8 +580,7 @@ func UpdateClothes(delay int, peer enet.Peer) {
 	variant.InsertTripleFloat(pData.Clothes.Back, pData.Clothes.Mask, pData.Clothes.Necklace)
 	variant.InsertInt(pData.SkinColor)
 	variant.InsertTripleFloat(0, 0, 0)
-	variant.Send(peer)
-	return
+	variant.Send(otherPeer)
 }
 
 func SetAccountHasSecured(peer enet.Peer) {
@@ -605,7 +588,6 @@ func SetAccountHasSecured(peer enet.Peer) {
 	variant.InsertString("SetAccountHasSecured")
 	variant.InsertInt(1)
 	variant.Send(peer)
-	return
 }
 
 func SetRespawnPos(peer enet.Peer, pos int, delay int) {
@@ -613,7 +595,6 @@ func SetRespawnPos(peer enet.Peer, pos int, delay int) {
 	variant.InsertString("SetRespawnPos")
 	variant.InsertInt(pos)
 	variant.Send(peer)
-	return
 }
 
 func OnSetFreezeState(peer enet.Peer, yes bool, delay int) {
@@ -625,5 +606,4 @@ func OnSetFreezeState(peer enet.Peer, yes bool, delay int) {
 		variant.InsertInt(0)
 	}
 	variant.Send(peer)
-	return
 }

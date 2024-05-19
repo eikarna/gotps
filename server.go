@@ -83,7 +83,6 @@ func main() {
 				}
 			case 4:
 				{
-					log.Warn("%#v", pkt.GetMessageFromPacket(packet))
 					clients.OnTankPacket(ev.GetPeer(), host, packet, itemInfo, globalPeer)
 					break
 				}
