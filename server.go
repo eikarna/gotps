@@ -10,13 +10,12 @@ import (
 	"github.com/eikarna/gotps/items"
 	pkt "github.com/eikarna/gotps/packet"
 	// "github.com/vmihailenco/msgpack/v5"
+	"time"
 )
 
 var (
 	once          sync.Once
 	GrowtopiaPort uint16 = 17091
-
-	globalPeer []enet.Peer
 )
 
 func main() {
@@ -35,7 +34,9 @@ func main() {
 	// GTPS Support
 	host.EnableChecksum()
 	host.CompressWithRangeCoder()
-	itemInfo, err := items.SerializeItemsDat("items.dat")
+	log.Warn("Loading \"items.dat\"..")
+	startTimestamp := time.Now()
+	itemInfo, err := items.SerializeItemsDat("items.dat", startTimestamp)
 	if err != nil {
 		log.Error("Itemsdat: %s", err.Error())
 	}
@@ -55,12 +56,12 @@ func main() {
 			}
 		case enet.EventConnect:
 			{
-				clients.OnConnect(ev.GetPeer(), host, itemInfo, globalPeer) //Handle Client OnConnect
+				clients.OnConnect(ev.GetPeer(), host, itemInfo) //Handle Client OnConnect
 				break
 			}
 		case enet.EventDisconnect:
 			{
-				clients.OnDisConnect(ev.GetPeer(), host, itemInfo, globalPeer) //Handle Client OnDisConnect
+				clients.OnDisConnect(ev.GetPeer(), host, itemInfo) //Handle Client OnDisConnect
 				break
 			}
 
@@ -73,17 +74,17 @@ func main() {
 			switch packet.GetData()[0] { //Net Message Type
 			case 2:
 				{
-					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo, globalPeer)
+					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo)
 					break
 				}
 			case 3:
 				{
-					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo, globalPeer)
+					clients.OnTextPacket(ev.GetPeer(), host, pkt.GetMessageFromPacket(packet), itemInfo)
 					break
 				}
 			case 4:
 				{
-					clients.OnTankPacket(ev.GetPeer(), host, packet, itemInfo, globalPeer)
+					clients.OnTankPacket(ev.GetPeer(), host, packet, itemInfo)
 					break
 				}
 			case 22:

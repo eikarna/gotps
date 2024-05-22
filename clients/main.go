@@ -17,19 +17,18 @@ import (
 	"github.com/eikarna/gotps/worlds"
 )
 
-func OnTileUpdate(packet enet.Packet, peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World) {
-	switch Tank.Value {
-	case 18:
+func OnTileUpdate(packet enet.Packet, peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World, items *items.ItemInfo) {
+	itemMeta := items.Items[Tank.Value]
+	switch worlds.ActionType(itemMeta.ActionType) {
+	case worlds.Fist:
+		fn.OnPunch(peer, Tank, world, items)
+		break
+	case worlds.Wrench:
 		{
-			fn.OnPunch(peer, Tank, world)
+			fn.OnWrenchTile(peer, Tank, world, items)
 			break
 		}
-	case 20:
-		{
-			//fn.OnWrench(peer, Tank, world)
-			break
-		}
-	case 7188:
+	case worlds.Lock:
 		{
 			// test, ok := worlds.Worlds[PInfo(peer).CurrentWorld]
 			Coords := Tank.PunchX + (Tank.PunchY * uint32(world.SizeX))
@@ -59,28 +58,26 @@ func OnTileUpdate(packet enet.Packet, peer enet.Peer, Tank *tankpacket.TankPacke
 						}
 					}
 					fn.ModifyInventory(peer, int(Tank.Value), -1, PInfo(peer))
-					fn.AddTile(peer, Tank)
+					fn.AddTile(peer, Tank, items)
 					worlds.Worlds[PInfo(peer).CurrentWorld].OwnerUid = int32(PInfo(peer).UserID)
 					lockPack, lockPacket, packet = nil, nil, nil
 				} else {
 					fn.TalkBubble(peer, PInfo(peer).NetID, 0, false, "Someone has been used locks!")
 					break
 				}
-				fn.TalkBubble(peer, PInfo(peer).NetID, 100, false, "Updating Block at %d", Coords)
 			}
 			break
 		}
 	default:
 		{
 			fn.ModifyInventory(peer, int(Tank.Value), -1, PInfo(peer))
-			fn.AddTile(peer, Tank)
+			fn.AddTile(peer, Tank, items)
 			decodedPack := &tankpacket.TankPacket{}
 			decodedPack.SerializeFromMem(packet.GetData()[4:])
 			log.Info("Got Unknown Packet with type %d: %#v", decodedPack.PacketType, decodedPack)
 			decodedPack = nil
 			break
 		}
-
 	}
 }
 
@@ -185,7 +182,7 @@ func OnCommand(peer enet.Peer, host enet.Host, cmd string, isCommand bool) {
 		fn.ConsoleMsg(peer, 0, "CPU: %d Core(s)\nAlloc: %d MB\nTotalAlloc: %d MB\nSys: %d MB\nNumGC: %d Thread(s)", cpuUsage, m.Alloc/1024/1024, m.TotalAlloc/1024/1024, memoryUsage, m.NumGC)
 		fn.TalkBubble(peer, PInfo(peer).NetID, 100, false, "CPU: %d Core(s)\nAlloc: %d MB\nTotalAlloc: %d MB\nSys: %d MB\nNumGC: %d Thread(s)", cpuUsage, m.Alloc/1024/1024, m.TotalAlloc/1024/1024, memoryUsage, m.NumGC)
 	} else if strings.HasPrefix(lowerCmd, "/dialog") {
-		fn.OnDialogRequest(peer, "text_scaling_string|Dirttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt|\nset_default_color|`o\nadd_label_with_icon|big|`wGet a growlandID``|left|206|\nadd_spacer|small|\nadd_textbox|By choosing a `wgrowlandID``, you can use a name and password to logon from any device.Your `wname`` will be shown to other players!|left|\nadd_spacer|small|\nadd_text_input|logon|Name|Akbar Awor|18|\nadd_textbox|Your `wpassword`` must contain `w8 to 18 characters, 1 letter, 1 number`` and `w1 special character: @#!$^&*.,``|left|\nadd_text_input_password|password|Password|Anton Malang 69|18|\nadd_text_input_password|password_verify|Password Verify|Anton Malang 69 Verif|18|\nadd_textbox|Your `wemail`` will only be used for account verification and support. If you enter a fake email, you can't verify your account, recover or change your password.|left|\nadd_text_input|email|Email|Akbar Faisal|64|\nadd_textbox|We will never ask you for your password or email, never share it with anyone!|left|\nend_dialog|growid_apply|Cancel|Get My growlandID!|\n", 0)
+		fn.OnSendDialog(peer, "text_scaling_string|Dirttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt|\nset_default_color|`o\nadd_label_with_icon|big|`wGet a growlandID``|left|206|\nadd_spacer|small|\nadd_textbox|By choosing a `wgrowlandID``, you can use a name and password to logon from any device.Your `wname`` will be shown to other players!|left|\nadd_spacer|small|\nadd_text_input|logon|Name|Akbar Awor|18|\nadd_textbox|Your `wpassword`` must contain `w8 to 18 characters, 1 letter, 1 number`` and `w1 special character: @#!$^&*.,``|left|\nadd_text_input_password|password|Password|Anton Malang 69|18|\nadd_text_input_password|password_verify|Password Verify|Anton Malang 69 Verif|18|\nadd_textbox|Your `wemail`` will only be used for account verification and support. If you enter a fake email, you can't verify your account, recover or change your password.|left|\nadd_text_input|email|Email|Akbar Faisal|64|\nadd_textbox|We will never ask you for your password or email, never share it with anyone!|left|\nend_dialog|growid_apply|Cancel|Get My growlandID!|\n", 0)
 	} else {
 		fn.LogMsg(peer, "`4Unknown command.``  Enter `$/?`` for a list of valid commands.")
 	}
@@ -212,13 +209,26 @@ func OnChatInput(peer enet.Peer, host enet.Host, text string) {
 	}
 }
 
-func OnPlayerMove(peer enet.Peer, packet enet.Packet) {
+func OnPlayerMove(peer enet.Peer, packet enet.Packet, item *items.ItemInfo) {
 	movePacket := packet.GetData()
 	PInfo(peer).RotatedLeft = (binary.LittleEndian.Uint32(movePacket[16:20]) & 0x10) != 0
 	PInfo(peer).PosX = math.Float32frombits(binary.LittleEndian.Uint32(movePacket[28:32]))
 	PInfo(peer).PosY = math.Float32frombits(binary.LittleEndian.Uint32(movePacket[32:36]))
-	log.Info("%s RotatedLeft: %t, PosX: %0.f, Pos: %0.f", PInfo(peer).Name, PInfo(peer).RotatedLeft, PInfo(peer).PosX, PInfo(peer).PosY)
+	pPos := int32(PInfo(peer).PosX)/32 + (int32(PInfo(peer).PosY) / 32 * worlds.Worlds[PInfo(peer).CurrentWorld].SizeX)
+	log.Info("%s RotatedLeft: %t, PosX: %0.f, PosY: %0.f", PInfo(peer).Name, PInfo(peer).RotatedLeft, PInfo(peer).PosX, PInfo(peer).PosY)
 	binary.LittleEndian.PutUint16(movePacket[8:12], uint16(PInfo(peer).NetID))
+	block := worlds.Worlds[PInfo(peer).CurrentWorld].Tiles[pPos]
+	itemMeta := item.Items[block.Fg]
+	if block.Fg == 0 {
+		itemMeta = item.Items[block.Bg]
+	}
+	switch worlds.ActionType(itemMeta.ActionType) {
+	case worlds.Checkpoint:
+		fn.SetRespawnPos(peer, int(pPos), 0)
+		break
+	default:
+		break
+	}
 	packet, err := enet.NewPacket(movePacket, enet.PacketFlagReliable)
 	if err != nil {
 		panic(err)
@@ -262,7 +272,7 @@ func OnPlayerExitWorld(peer enet.Peer) {
 	fn.SendWorldMenu(peer)
 }
 
-func OnConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalPeer []enet.Peer) {
+func OnConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo) {
 	log.Info("New Client Connected %s", peer.GetAddress().String())
 	/*PlayerMap[peer] = &Player{
 		IpAddress: peer.GetAddress().String(),
@@ -277,7 +287,7 @@ func OnConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalPeer
 	pkt.SendPacket(peer, 1, "") //hello response
 }
 
-func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalPeer []enet.Peer) {
+func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo) {
 	log.Info("New Client Disconnected %s", peer.GetAddress().String())
 	if NotSafePlayer(peer) {
 		return
@@ -312,7 +322,7 @@ func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo, globalP
 	PInfo(peer).IsOnline = false
 }
 
-func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.ItemInfo, globalPeer []enet.Peer) {
+func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.ItemInfo) {
 	//g.Info("TextPacket: %s", text)
 	if strings.Contains(text, "requestedName|") {
 		ParseUserData(text, host, peer, fn.ConsoleMsg)
@@ -397,6 +407,10 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 				}
 				break
 			}
+		case "respawn":
+			{
+				break
+			}
 		default:
 			{
 				if strings.HasPrefix(text[7:], "quit_to_exit") {
@@ -413,7 +427,7 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 	}
 }
 
-func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *items.ItemInfo, globalPeer []enet.Peer) {
+func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *items.ItemInfo) {
 	if NotSafePlayer(peer) {
 		return
 	}
@@ -436,21 +450,32 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 		switch Tank.PacketType {
 		case 0:
 			{ //player movement
-				OnPlayerMove(peer, packet)
+				OnPlayerMove(peer, packet, items)
 				break
 			}
 		case 3:
 			{
-				OnTileUpdate(packet, peer, Tank, world)
+				OnTileUpdate(packet, peer, Tank, world, items)
 				break
 			}
 		case 7:
 			{
 				// Door
-				if GetPlayer(peer).CurrentWorld != "" {
-					OnPlayerExitWorld(peer)
+				pPos := int32(PInfo(peer).PosX)/32 + (int32(PInfo(peer).PosY) / 32 * worlds.Worlds[PInfo(peer).CurrentWorld].SizeX)
+				block := worlds.Worlds[PInfo(peer).CurrentWorld].Tiles[pPos]
+				itemMeta := items.Items[block.Fg]
+				if itemMeta.ItemID == 0 {
+					itemMeta = items.Items[block.Bg]
 				}
-				break
+				switch worlds.ActionType(itemMeta.ActionType) {
+				case worlds.MainDoor:
+					if GetPlayer(peer).CurrentWorld != "" {
+						OnPlayerExitWorld(peer)
+					}
+					break
+				default:
+					break
+				}
 			}
 		case 10:
 			{
@@ -584,7 +609,6 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 	fn.PlayMsg(peer, 0, "audio/door_open.wav")
 	fn.ConsoleMsg(peer, 0, "`5<`w%s ``entered, `w%d`` others here`5>", GetPlayerName(peer), world.PlayersIn)
 	fn.TalkBubble(peer, PInfo(peer).NetID, 300, true, "`5<`w%s ``entered, `w%d`` others here`5>", GetPlayerName(peer), world.PlayersIn)
-	fn.UpdateClothes(0, peer, peer)
 	for _, currentPeer := range GetPeers(PlayerMap) {
 		if PInfo(currentPeer).CurrentWorld == PInfo(peer).CurrentWorld && PInfo(currentPeer).PeerID != PInfo(peer).PeerID {
 			// Spawn Another Player Avatar to You
@@ -594,6 +618,7 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 			fn.OnSpawn(currentPeer, int16(PInfo(peer).NetID), PInfo(peer).PeerID, int32(PInfo(peer).SpawnX), int32(PInfo(peer).SpawnY), GetPlayerName(peer), PInfo(peer).Country, false, true, true, false)
 			fn.OnSpawn(peer, int16(PInfo(currentPeer).NetID), PInfo(currentPeer).PeerID, int32(PInfo(currentPeer).PosX), int32(PInfo(currentPeer).PosY), GetPlayerName(currentPeer), PInfo(currentPeer).Country, false, true, true, false)
 			fn.UpdateClothes(0, peer, currentPeer)
+			fn.UpdateClothes(0, currentPeer, peer)
 		}
 	}
 	fn.ListActiveWorld[world.Name] = int(world.PlayersIn)

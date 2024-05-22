@@ -7,8 +7,10 @@ import (
 
 	"github.com/codecat/go-libs/log"
 	enet "github.com/eikarna/gotops"
+	"github.com/eikarna/gotps/builder"
 	"github.com/eikarna/gotps/functions/variants"
 	variant "github.com/eikarna/gotps/functions/variants"
+	items "github.com/eikarna/gotps/items"
 	pkt "github.com/eikarna/gotps/packet"
 	tankpacket "github.com/eikarna/gotps/packet/TankPacket"
 	player "github.com/eikarna/gotps/players"
@@ -26,7 +28,7 @@ func OnRemove(peer enet.Peer, netid uint32) {
 	variant.Send(peer)
 }
 
-func OnDialogRequest(peer enet.Peer, dialog string, delay int) {
+func OnSendDialog(peer enet.Peer, dialog string, delay int) {
 	variant := variant.NewVariant(delay, -1)
 	variant.InsertString("OnDialogRequest")
 	variant.InsertString(dialog)
@@ -63,11 +65,27 @@ func ModifyInventory(peer enet.Peer, itemId int, count int, pl *player.Player) {
 	pl, ReducePack, ReducedPacket, Packet = nil, nil, nil, nil
 }
 
-func OnWrench(peer enet.Peer, Tank *tankpacket.TankPacket, name string) {
-
+func OnWrenchTile(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World, items *items.ItemInfo) {
+	Coords := Tank.PunchX + (Tank.PunchY * uint32(world.SizeX))
+	block := world.Tiles[Coords].Fg
+	if block == 0 {
+		block = world.Tiles[Coords].Bg
+	}
+	itemMeta := items.Items[block]
+	switch worlds.ActionType(itemMeta.ActionType) {
+	case worlds.Sign:
+		// dialogString := "text_scaling_string|Dirttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt|\nset_default_color|`o\nadd_label_with_icon|big|`wMain Door Welcomer (Pos: " + strconv.Itoa(int(Coords)) + ")``|left|6|\nadd_spacer|small|\nadd_textbox|By customizing your Main Door Welcomer, Your `wmessage`` will be shown to other players!|left|\nadd_spacer|small|\nadd_text_input|text|Name|" + world.Tiles[Coords].Label + "|8|\nend_dialog|maindoor_apply|Cancel|Set Door Welcomer!|\n"
+		db := DialogBuilder.NewDialogBuilder("0")
+		db.AddLabel(true, "Testt").
+			AddTextInput(18, "TextInput", "Input Text: ", "")
+		OnSendDialog(peer, db.String(), 0)
+		break
+	default:
+		break
+	}
 }
 
-func AddTile(peer enet.Peer, Tank *tankpacket.TankPacket) {
+func AddTile(peer enet.Peer, Tank *tankpacket.TankPacket, item *items.ItemInfo) {
 	Coords := Tank.PunchX + (Tank.PunchY * uint32(worlds.Worlds[player.PInfo(peer).CurrentWorld].SizeX))
 	PlacePack := &tankpacket.TankPacket{
 		PacketType:     3,
@@ -82,8 +100,21 @@ func AddTile(peer enet.Peer, Tank *tankpacket.TankPacket) {
 		PunchY:         Tank.PunchY,
 	}
 	PlacePacket := PlacePack.Serialize(56, true)
-	worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[Coords].Fg = int16(Tank.Value)
-	worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[Coords].Bg = int16(Tank.Value)
+	itemMeta := item.Items[Tank.Value]
+	switch worlds.ActionType(itemMeta.ActionType) {
+	case worlds.Foreground:
+		if worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[Coords].Fg == 0 {
+			worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[Coords].Fg = int16(Tank.Value)
+		}
+		break
+	case worlds.Background:
+		if worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[Coords].Bg == 0 {
+			worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[Coords].Bg = int16(Tank.Value)
+		}
+		break
+	default:
+		break
+	}
 	TalkBubble(peer, player.PInfo(peer).NetID, 100, false, "ID: %d, Qty: %d", Tank.Value, player.GetCountItemFromInventory(peer, int(Tank.Value)))
 	Packet, err := enet.NewPacket(PlacePacket, enet.PacketFlagReliable)
 	if err != nil {
@@ -279,15 +310,37 @@ func PunchLoop(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World)
 	}*/
 }
 
-func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World) {
+func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World, items *items.ItemInfo) {
 	Coords := Tank.PunchX + (Tank.PunchY * uint32(world.SizeX))
 	//ConsoleMsg(peer, 0, "PunchX: %d, PunchY: %d, TotalXY: %d", Tank.PunchX, Tank.PunchY, Coords)
 	if world.Tiles[Coords].Fg == 6 || world.Tiles[Coords].Fg == 8 {
 		TalkBubble(peer, player.PInfo(peer).NetID, 0, false, "It's too strong to break.")
+		for _, currentPeer := range player.GetPeers(player.PlayerMap) {
+			if player.NotSafePlayer(peer) {
+				return
+			}
+			if player.PInfo(peer).CurrentWorld == player.PInfo(peer).CurrentWorld {
+				OnPlayPositioned(0, peer, currentPeer)
+				break
+			}
+		}
 		return
 	}
-	worlds.Worlds[world.Name].Tiles[Coords].Fg = 0
-	worlds.Worlds[world.Name].Tiles[Coords].Bg = 0
+	itemMeta := items.Items[world.Tiles[Coords].Fg]
+	if world.Tiles[Coords].Fg == 0 {
+		itemMeta = items.Items[world.Tiles[Coords].Bg]
+	}
+	// TalkBubble(peer, player.PInfo(peer).NetID, 0, true, "%#v", itemMeta)
+	switch worlds.ActionType(itemMeta.ActionType) {
+	case worlds.Foreground:
+		world.Tiles[Coords].Fg = 0
+		break
+	case worlds.Background:
+		world.Tiles[Coords].Bg = 0
+		break
+	default:
+		break
+	}
 	Tank.NetID = player.PInfo(peer).NetID
 	Tank.X = player.PInfo(peer).PosX
 	Tank.Y = player.PInfo(peer).PosY
@@ -580,6 +633,13 @@ func UpdateClothes(delay int, peer, otherPeer enet.Peer) {
 	variant.InsertTripleFloat(pData.Clothes.Back, pData.Clothes.Mask, pData.Clothes.Necklace)
 	variant.InsertInt(pData.SkinColor)
 	variant.InsertTripleFloat(0, 0, 0)
+	variant.Send(otherPeer)
+}
+
+func OnPlayPositioned(delay int, peer, otherPeer enet.Peer) {
+	variant := variant.NewVariant(delay, int(player.PInfo(peer).NetID))
+	variant.InsertString("OnPlayPositioned")
+	variant.InsertString("audio/punch_locked.wav")
 	variant.Send(otherPeer)
 }
 

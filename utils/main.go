@@ -19,6 +19,13 @@ func BoolToInt(b bool) int {
 	return 0
 }
 
+func BoolToStr(b bool, trueStr, falseStr string) string {
+	if b {
+		return trueStr
+	}
+	return falseStr
+}
+
 type TextPacket struct {
 	Data sync.Map
 }
