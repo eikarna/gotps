@@ -6,9 +6,10 @@ import (
 	//	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/codecat/go-libs/log"
 	enet "github.com/eikarna/gotops"
-	clients "github.com/eikarna/gotps/clients"
-	"github.com/eikarna/gotps/items"
-	pkt "github.com/eikarna/gotps/packet"
+	clients "github.com/eikarna/gotps/handler/clients"
+	items "github.com/eikarna/gotps/handler/items"
+	pkt "github.com/eikarna/gotps/handler/packet"
+
 	// "github.com/vmihailenco/msgpack/v5"
 	"time"
 )

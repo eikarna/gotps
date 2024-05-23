@@ -2,8 +2,9 @@ package DialogBuilder
 
 import (
 	"fmt"
-	"github.com/eikarna/gotps/utils"
 	"strings"
+
+	"github.com/eikarna/gotps/handler/utils"
 )
 
 type Vec2i struct {
