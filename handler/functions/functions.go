@@ -3,7 +3,10 @@ package functions
 import (
 	"encoding/binary"
 	"fmt"
+	"math/rand"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/codecat/go-libs/log"
 	enet "github.com/eikarna/gotops"
@@ -74,13 +77,68 @@ func OnWrenchTile(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.Wor
 	switch worlds.ActionType(itemMeta.ActionType) {
 	case worlds.Sign:
 		// dialogString := "text_scaling_string|Dirttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt|\nset_default_color|`o\nadd_label_with_icon|big|`wMain Door Welcomer (Pos: " + strconv.Itoa(int(Coords)) + ")``|left|6|\nadd_spacer|small|\nadd_textbox|By customizing your Main Door Welcomer, Your `wmessage`` will be shown to other players!|left|\nadd_spacer|small|\nadd_text_input|text|Name|" + world.Tiles[Coords].Label + "|8|\nend_dialog|maindoor_apply|Cancel|Set Door Welcomer!|\n"
-		db := DialogBuilder.NewDialogBuilder("0")
-		db.AddLabel(true, "Testt").
-			AddTextInput(18, "TextInput", "Input Text: ", "")
+		db := DialogBuilder.NewDialogBuilder("")
+		db.AddLabelIcon(true, int(block), "`wEdit "+itemMeta.Name).AddTextbox("What would you like to write on this sign?``").
+			AddTextInput(128, "sign_text", "Input Text: ", world.Tiles[Coords].Label).
+			EmbedData(false, "tilex", fmt.Sprint(Tank.PunchX)).
+			EmbedData(true, "tiley", fmt.Sprint(Tank.PunchY)).
+			EndDialog("sign_edit", "Cancel", "OK!")
+		// p.Insert("set_default_color|`o\nadd_label_with_icon|big|`wEdit " + items[t_].name + "``|left|" + to_string(t_) + "|\nadd_textbox|" + (t_ == 1684 or t_ == 1912 or t_ == 4482 ? "Enter an ID. You can use this as a destination for Doors.``" : "What would you like to write on this sign?``") + "|left|\nadd_text_input|sign_text||" + (t_ == 1684 or t_ == 1912 or t_ == 4482 ? block_->door_id : block_->txt) + "|128|\nembed_data|tilex|" + to_string(x_) + "\nembed_data|tiley|" + to_string(y_) + "\nend_dialog|sign_edit|Cancel|OK|");
 		OnSendDialog(peer, db.String(), 0)
 		break
 	default:
 		break
+	}
+}
+
+func DialogHandler(peer enet.Peer, text string, items *items.ItemInfo) {
+	log.Info("Dialog Name: %s", text)
+	lines := strings.Split(text, "\n")
+	if len(lines) < 3 || len(lines) > 10 {
+		return
+	}
+	lengthText := len(strings.Split(lines[0], "|")[0]) // Split \n first then "|"
+	switch text[:lengthText] {
+	case "sign_edit":
+		{
+			if len(strings.Split(lines[3], "|")[0]) > 128 {
+				break
+			}
+			var tileX, tileY uint32
+			tx, err := strconv.ParseUint(strings.Split(lines[1], "|")[0], 0, 32)
+			if err != nil {
+				log.Error("Unexpected error when parsing tileX:", err)
+				return
+			}
+			tileX = uint32(tx)
+			ty, err := strconv.ParseUint(strings.Split(lines[2], "|")[0], 0, 32)
+			if err != nil {
+				log.Error("Unexpected error when parsing tileY:", err)
+				return
+			}
+			tileY = uint32(ty)
+			worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[tileX+tileY*uint32(worlds.Worlds[player.PInfo(peer).CurrentWorld].SizeX)].Label = strings.Split(lines[3], "|")[0]
+			tank := &tankpacket.TankPacket{
+				PacketType:     5,
+				NetID:          player.PInfo(peer).NetID,
+				PunchX:         tileX,
+				PunchY:         tileY,
+				CharacterState: 0x8,
+				Value:          20,
+				X:              player.PInfo(peer).PosX,
+				Y:              player.PInfo(peer).PosY,
+			}
+			packet, err := enet.NewPacket(tank.Serialize(112+99, true), enet.PacketFlagReliable)
+			if err != nil {
+				log.Error("Error Packet 5: %v", err)
+			}
+			for _, currentPeer := range player.GetPeers(player.PlayerMap) {
+				if player.PInfo(currentPeer) == player.PInfo(peer) {
+					currentPeer.SendPacket(packet, 0)
+				}
+			}
+			break
+		}
 	}
 }
 
@@ -109,6 +167,13 @@ func AddTile(peer enet.Peer, Tank *tankpacket.TankPacket, item *items.ItemInfo) 
 	case worlds.Background:
 		if worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[Coords].Bg == 0 {
 			worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[Coords].Bg = int16(Tank.Value)
+		}
+		break
+	case worlds.Seed:
+		tile := worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[Coords].Fg
+		if tile == 0 {
+			worlds.Worlds[player.PInfo(peer).CurrentWorld].Tiles[Coords].Fg = int16(Tank.Value)
+			Plant(peer, Tank, worlds.Worlds[player.PInfo(peer).CurrentWorld], item, Coords)
 		}
 		break
 	default:
@@ -364,6 +429,26 @@ func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World, i
 	Tank, bbb, aaa, world = nil, nil, nil, nil
 }
 
+func Plant(peer enet.Peer, tank *tankpacket.TankPacket, world *worlds.World, items *items.ItemInfo, coords uint32) {
+	if items.Items[world.Tiles[coords].Fg].Rarity == 999 {
+		world.Tiles[coords].Fruit = 1
+	} else {
+		world.Tiles[coords].Fruit = int16(rand.Intn(4) + 1)
+	}
+	world.Tiles[coords].Planted = int32(time.Now().Unix()) - items.Items[world.Tiles[coords].Fg].GrowTime
+	tank.PacketType = 5
+	tank.CharacterState = 0x8
+	packet, err := enet.NewPacket(tank.Serialize(112+99, true), enet.PacketFlagReliable)
+	if err != nil {
+		log.Error("Error Packet 5:", err)
+	}
+	for _, currentPeer := range player.GetPeers(player.PlayerMap) {
+		if player.PInfo(currentPeer) == player.PInfo(peer) {
+			currentPeer.SendPacket(packet, 0)
+		}
+	}
+}
+
 func SendWorldMenu(peer enet.Peer) {
 	var world_packet string
 	// Add World Start as default
@@ -438,7 +523,7 @@ func SetHasGrowID(peer enet.Peer) {
 	variant.Send(peer)
 }
 
-func UpdateWorld(peer enet.Peer, name string) {
+func UpdateWorld(peer enet.Peer, name string, items *items.ItemInfo) {
 	if player.NotSafePlayer(peer) {
 		LogMsg(peer, "`4Invalid Player Data!``")
 		return
@@ -464,8 +549,13 @@ func UpdateWorld(peer enet.Peer, name string) {
 		binary.LittleEndian.PutUint16(worldPacket[extraDataPos:], uint16(wi.Tiles[i].Fg))
 		binary.LittleEndian.PutUint16(worldPacket[extraDataPos+2:], uint16(wi.Tiles[i].Bg))
 		binary.LittleEndian.PutUint32(worldPacket[extraDataPos+4:], uint32(wi.Tiles[i].Flags))
-		switch wi.Tiles[i].Fg {
-		case 6:
+		block := wi.Tiles[i].Fg
+		if block == 0 {
+			block = wi.Tiles[i].Bg
+		}
+		itemMeta := items.Items[block]
+		switch worlds.ActionType(itemMeta.ActionType) {
+		case worlds.MainDoor:
 			{
 				worldPacket[extraDataPos+8] = 1 //block types
 				binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(len(wi.Tiles[i].Label)))
@@ -476,7 +566,30 @@ func UpdateWorld(peer enet.Peer, name string) {
 				extraDataPos += 4 + len(wi.Tiles[i].Label)
 				break
 			}
-		case 7188:
+		case worlds.Seed:
+			{
+				var value int32 = wi.Tiles[i].Flags | 0x100000
+
+				binary.LittleEndian.PutUint32(worldPacket[extraDataPos+4:], uint32(value))
+
+				worldPacket[extraDataPos+8] = 4 // block types
+				now := time.Now().Unix()
+				// Calculate the value to be set at blc + 9
+				countdown := int32(now) - wi.Tiles[i].Planted
+				if countdown > items.Items[wi.Tiles[i].Fg].GrowTime {
+					countdown = items.Items[wi.Tiles[i].Fg].GrowTime
+				}
+
+				// Pointer arithmetic: blc + 9
+
+				binary.LittleEndian.PutUint32(worldPacket[extraDataPos+9:], uint32(countdown))
+
+				// Pointer arithmetic: blc + 13
+				binary.LittleEndian.PutUint16(worldPacket[extraDataPos+13:], uint16(wi.Tiles[i].Fruit))
+				extraDataPos += 3
+				break
+			}
+		case worlds.Lock:
 			{
 				worldPacket[extraDataPos+8] = 3
 				worldPacket[extraDataPos+9] = 128
@@ -484,7 +597,63 @@ func UpdateWorld(peer enet.Peer, name string) {
 				worldPacket[extraDataPos+14] = 0
 				binary.LittleEndian.PutUint32(worldPacket[extraDataPos+18:], 0)
 				binary.LittleEndian.PutUint32(worldPacket[extraDataPos+22:], 0)
-				extraDataPos += 26
+				extraDataPos += 5
+				break
+			}
+		case worlds.WeatherMachine:
+			{
+				switch block {
+				case 3694:
+					{
+						worldPacket[extraDataPos+8] = 40 //block types
+						if block != 0 {
+							binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(block))
+						} else {
+							binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], 14)
+						}
+
+					}
+				case 5000:
+					{
+						worldPacket[extraDataPos+8] = 40 //block types
+						if block != 0 {
+							binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(block))
+						} else {
+							binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], 14)
+						}
+
+					}
+				case 3832:
+					{
+						worldPacket[extraDataPos+8] = 49 //block types
+						if block != 0 {
+							binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(block))
+						} else {
+							binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], 2)
+						}
+						break
+					}
+				default:
+					{
+						worldPacket[extraDataPos+8] = 5 //block types
+						extraDataPos += 1
+						break
+					}
+				}
+				break
+			}
+		case worlds.Crystal:
+			{
+				worldPacket[extraDataPos+8] = 6 //block types
+				extraDataPos += 4
+				break
+			}
+		case worlds.Sign:
+			{
+				worldPacket[extraDataPos+8] = 2 //block types
+				binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(len(wi.Tiles[i].Label)))
+				copy(worldPacket[extraDataPos+11:], []byte(wi.Tiles[i].Label))
+				extraDataPos += 4 + len(wi.Tiles[i].Label)
 				break
 			}
 		default:
@@ -621,6 +790,7 @@ func OnSpawn(peer enet.Peer, netid int16, userid uint32, posX int32, posY int32,
 	variant.InsertString("OnSpawn")
 	variant.InsertString(spawnAvatar)
 	variant.Send(peer)
+	log.Info("%s", spawnAvatar)
 }
 
 func UpdateClothes(delay int, peer, otherPeer enet.Peer) {

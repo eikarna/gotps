@@ -1,10 +1,12 @@
 package players
 
 import (
+	"encoding/gob"
+	"errors"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/codecat/go-libs/log"
 	enet "github.com/eikarna/gotops"
@@ -77,63 +79,6 @@ type Player struct {
 }
 
 var PlayerMap = make(map[enet.Peer]*Player)
-
-func (p *Player) GetTankName() string {
-	return p.TankIDName
-}
-
-func (p *Player) GetTankPass() string {
-	return p.TankIDPass
-}
-
-/*func (p *Player) GetPeer() enet.Peer {
-	return p.
-}*/
-
-func (p *Player) GetCountry() string {
-	return p.Country
-}
-
-func (p *Player) GetPlatformID() string {
-	return p.PlatformID
-}
-
-func (p *Player) GetAge() uint32 {
-	return p.PlayerAge
-}
-
-func (p *Player) GetProtocol() uint32 {
-	return p.Protocol
-}
-
-func (p *Player) GetMac() string {
-	return p.MacAddr
-}
-
-func (p *Player) GetDeviceVersion() uint32 {
-	return p.DeviceVersion
-}
-
-func (p *Player) GetRid() string {
-	return p.Rid
-}
-
-func (p *Player) GetGid() string {
-	return p.Gid
-}
-
-func (p *Player) GetIp() string {
-	return p.IpAddress
-}
-
-func (p *Player) GetUserid() uint32 {
-	return p.UserID
-}
-
-func NewPlayer(peer enet.Peer) *Player {
-	player := &Player{}
-	return player
-}
 
 func GetPlayer(peer enet.Peer) *Player {
 	player, exists := PlayerMap[peer]
@@ -254,59 +199,83 @@ func ParseUserData(text string, host enet.Host, peer enet.Peer, ConsoleMsg func(
 			}
 		}
 	}
-	// Now you can access the parsed key-value pairs from the userData map
-	// var isGuest bool
 
-	// Convert protocol and platformID to uint32
-	protocol := parseUint(userData["protocol"])
-
-	// Convert deviceVersion to uint32
-	deviceVersion := parseUint(userData["deviceVersion"])
-
-	// Seed the random number generator
-	rand.Seed(time.Now().UnixNano())
-
-	userData["requestedName"] = userData["requestedName"] + "_" + strconv.Itoa(100+rand.Intn(899))
-
-	// Create a player struct
-	NewPlayerData := Player{
-		RequestedName: userData["requestedName"],
-		Protocol:      uint32(protocol),
-		Country:       userData["country"],
-		PlatformID:    userData["platformID"],
-		Gid:           userData["gid"],
-		Rid:           userData["rid"],
-		DeviceVersion: uint32(deviceVersion),
-		Roles:         5,
-		PeerID:        peerId,
-		SkinColor:     2864971775,
-	}
-
-	// Check if TankIDName exists
-	if _, ok := userData["tankIDName"]; ok {
-		// TankIDName exists, parse and save as registered user
-		IsRegistered := PlayerMap[peer]
-		if IsRegistered == nil {
-			NewPlayerData.TankIDName = userData["tankIDName"]
-			NewPlayerData.TankIDPass = userData["tankIDPass"]
-			NewPlayerData.Name = userData["tankIDName"]
-			log.Info("Growid player loaded & saved: %s", NewPlayerData.Name)
-			PlayerMap[peer] = &NewPlayerData
+	if NotSafePlayer(peer) {
+		var loadedPlayer *Player
+		var err error
+		if _, ok := userData["tankIDName"]; ok {
+			loadedPlayer, err = LoadPlayer(userData["tankIDName"])
+		} else if _, ok := userData["requestedName"]; ok {
+			loadedPlayer, err = LoadPlayer(userData["requestedName"])
 		} else {
-			PlayerMap[peer] = IsRegistered
-			log.Info("Growid player loaded: %s", PlayerMap[peer].Name)
+			log.Warn("Got invalid login packet from %s", peer.GetAddress().String())
+			peer.DisconnectNow(0)
+			return
+		}
+		if err != nil {
+			// Now you can access the parsed key-value pairs from the userData map
+			// var isGuest bool
+
+			// Convert protocol and platformID to uint32
+			protocol := parseUint(userData["protocol"])
+
+			// Convert deviceVersion to uint32
+			deviceVersion := parseUint(userData["deviceVersion"])
+
+			userData["requestedName"] = userData["requestedName"] + "_" + strconv.Itoa(100+rand.Intn(899))
+
+			// Create a player struct
+			NewPlayerData := Player{
+				RequestedName: userData["requestedName"],
+				Protocol:      uint32(protocol),
+				Country:       userData["country"],
+				PlatformID:    userData["platformID"],
+				Gid:           userData["gid"],
+				Rid:           userData["rid"],
+				DeviceVersion: uint32(deviceVersion),
+				Roles:         5,
+				PeerID:        peerId,
+				SkinColor:     2864971775,
+			}
+
+			// Check if TankIDName exists
+			if _, ok := userData["tankIDName"]; ok {
+				// TankIDName exists, parse and save as registered user
+				IsRegistered := PlayerMap[peer]
+				if IsRegistered == nil {
+					NewPlayerData.TankIDName = userData["tankIDName"]
+					NewPlayerData.TankIDPass = userData["tankIDPass"]
+					NewPlayerData.Name = userData["tankIDName"]
+					log.Info("Growid player loaded & saved: %s", NewPlayerData.Name)
+					PlayerMap[peer] = &NewPlayerData
+				} else {
+					PlayerMap[peer] = IsRegistered
+					log.Info("Growid player loaded: %s", PlayerMap[peer].Name)
+				}
+			} else {
+				// TankIDName does not exist, save as guest user
+				IsRegistered := PlayerMap[peer]
+				if IsRegistered == nil {
+					NewPlayerData.Name = userData["requestedName"]
+					PlayerMap[peer] = &NewPlayerData
+					log.Info("Guest player loaded & saved: %s", NewPlayerData.Name)
+				} else {
+					PlayerMap[peer] = IsRegistered
+					log.Info("Guest player loaded: %s", PlayerMap[peer].Name)
+				}
+			}
+			return
+		} else {
+			loadedPlayer.PeerID = peerId
+			loadedPlayer.IpAddress = peer.GetAddress().String()
+			PlayerMap[peer] = loadedPlayer
+			log.Info("%#v", loadedPlayer)
+			return
 		}
 	} else {
-		// TankIDName does not exist, save as guest user
-		IsRegistered := PlayerMap[peer]
-		if IsRegistered == nil {
-			NewPlayerData.Name = userData["requestedName"]
-			PlayerMap[peer] = &NewPlayerData
-			log.Info("Guest player loaded & saved: %s", NewPlayerData.Name)
-		} else {
-			PlayerMap[peer] = IsRegistered
-			log.Info("Guest player loaded: %s", PlayerMap[peer].Name)
-		}
+		PlayerMap[peer].PeerID = peerId
+		PlayerMap[peer].IpAddress = peer.GetAddress().String()
+		return
 	}
 }
 
@@ -325,4 +294,39 @@ func GetPeers(playerMap map[enet.Peer]*Player) []enet.Peer {
 		peers = append(peers, peer)
 	}
 	return peers
+}
+
+func SavePlayer(player *Player) error {
+	if player == nil {
+		return errors.New("SavePlayer: player is nil")
+	}
+	filePath := "database/players/_" + player.Name + ".bin"
+	f, err := os.Create(filePath)
+	if err != nil {
+		return errors.New("Couldn't open file: " + err.Error())
+	}
+	defer f.Close()
+	encoder := gob.NewEncoder(f)
+	err = encoder.Encode(player)
+	if err != nil {
+		return errors.New("Encoding failed: " + err.Error())
+	}
+	return nil
+}
+
+func LoadPlayer(name string) (*Player, error) {
+	filePath := "database/players/_" + name + ".bin"
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, errors.New("Couldn't open file: " + err.Error())
+	}
+	defer f.Close()
+
+	player := &Player{}
+	decoder := gob.NewDecoder(f)
+	err = decoder.Decode(player)
+	if err != nil {
+		return nil, errors.New("Decoding failed: " + err.Error())
+	}
+	return player, nil
 }

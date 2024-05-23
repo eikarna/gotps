@@ -4,10 +4,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+
 	// "strconv"
 
-	log "github.com/codecat/go-libs/log"
 	"time"
+
+	log "github.com/codecat/go-libs/log"
 )
 
 type Item struct {
@@ -173,9 +175,9 @@ func SerializeItemsDat(pathFile string, timestamp time.Time) (*ItemInfo, error) 
 		// log.Info("MemPos: %d", memPos)
 		itemId := binary.LittleEndian.Uint32(data[memPos:])
 		// log.Info("Got Items ID: %d", int(binary.LittleEndian.Uint16(data[memPos:])))
-		itemInfo.Items[i].ItemID = int32(itemId)
-		memPos += 4
 		if int32(itemId) < itemInfo.ItemCount {
+			itemInfo.Items[i].ItemID = int32(itemId)
+			memPos += 4
 			// log.Info("Got Items EditableType: %d", int(data[memPos]))
 			itemInfo.Items[i].EditableType = int8(data[memPos])
 			memPos += 1

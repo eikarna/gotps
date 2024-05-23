@@ -9,6 +9,7 @@ import (
 
 	log "github.com/codecat/go-libs/log"
 	enet "github.com/eikarna/gotops"
+	DialogBuilder "github.com/eikarna/gotps/builder"
 	tankpacket "github.com/eikarna/gotps/handler/TankPacket"
 	fn "github.com/eikarna/gotps/handler/functions"
 	items "github.com/eikarna/gotps/handler/items"
@@ -79,7 +80,7 @@ func OnTileUpdate(packet enet.Packet, peer enet.Peer, Tank *tankpacket.TankPacke
 	}
 }
 
-func OnCommand(peer enet.Peer, host enet.Host, cmd string, isCommand bool) {
+func OnCommand(peer enet.Peer, host enet.Host, cmd string, isCommand bool, items *items.ItemInfo) {
 	lowerCmd := strings.ToLower(cmd)
 	lowerCmd = strings.TrimRight(lowerCmd, "\x00") // Trim any null character
 	if isCommand {
@@ -89,8 +90,8 @@ func OnCommand(peer enet.Peer, host enet.Host, cmd string, isCommand bool) {
 		fn.LogMsg(peer, "Help Command >> /help /ip")
 	} else if strings.HasPrefix(lowerCmd, "/myip") {
 		fn.LogMsg(peer, "Your IP Address: %s", GetPlayer(peer).IpAddress)
-		/*else if strings.HasPrefix(lowerCmd, "/finditem") {
-		errorMessage := ">> Usage: /finditem <`$item name``> - Searches for item."
+	} else if strings.HasPrefix(lowerCmd, "/find") {
+		errorMessage := ">> Usage: /find <`$item name``> - Searches for item."
 		a_ := strings.Split(cmd, " ")
 		if len(a_) <= 1 {
 			fn.ConsoleMsg(peer, 0, errorMessage)
@@ -99,46 +100,33 @@ func OnCommand(peer enet.Peer, host enet.Host, cmd string, isCommand bool) {
 		if len(a_) >= 2 {
 			a_ = a_[1:]
 			targetSifinds := strings.ToLower(strings.Join(a_, " "))
+			log.Info("TargetSifinds: \"%s\"", targetSifinds)
 			if len(targetSifinds) < 3 {
 				fn.ConsoleMsg(peer, 0, ">> Enter atleast 3 letters!")
 				return
 			}
 			searchList := ""
 
-			for i := 0; i < len(items.); i++ {
-				itemID := items[i].id
-				if pInfo(peer).admin {
-					if items[itemID].blockType == BlockTypes.SEED {
-						continue
-					}
-					if !strings.Contains(items[itemID].oriName, "null_item") || !strings.Contains(items[itemID].oriName, "Guild Flag") || !strings.Contains(items[itemID].oriName, "Kranken") || !strings.Contains(items[itemID].oriName, "Sacrificial Well") {
-						continue
-					}
-					if strings.Contains(strings.ToLower(items[i].oriName), targetSifinds) {
-						searchList += "\nadd_button_with_icon|search_" + strconv.Itoa(int(itemID)) + "|`$" + items[i].oriName + "`2(" + strconv.Itoa(int(itemID)) + "`0)|staticYellowFrame | " + strconv.Itoa(int(itemID)) + " || "
-					}
-				}
-				if pInfo(peer).supermod {
-					if items[itemID].blockType == BlockTypes.SEED || items[itemID].blockType == BlockTypes.LOCK {
-						continue
-					}
-					if !strings.Contains(items[itemID].oriName, "chest") || !strings.Contains(items[itemID].oriName, "legend") || !strings.Contains(items[itemID].oriName, "null_item") || !strings.Contains(items[itemID].oriName, "Guild Flag") || !strings.Contains(items[itemID].oriName, "Kranken") || !strings.Contains(items[itemID].oriName, "Sacrificial Well") {
-						continue
-					}
-					if strings.Contains(strings.ToLower(items[i].oriName), targetSifinds) {
-						searchList += "\nadd_button_with_icon|search_" + strconv.Itoa(int(itemID)) + "|`$" + items[i].oriName + "`2(" + strconv.Itoa(int(itemID)) + "`0)|staticYellowFrame | " + strconv.Itoa(int(itemID)) + " || "
-					}
+			for i := 0; i < int(items.ItemCount); i++ {
+				itemID := items.Items[i].ItemID
+				if strings.Compare(strings.ToLower(items.Items[i].Name), targetSifinds) == 1 {
+					db := DialogBuilder.NewDialogBuilder("0")
+					db.AddStaticIconButton("search_"+strconv.Itoa(int(itemID)), int(itemID), "`$"+items.Items[i].Name+" ("+strconv.Itoa(int(itemID)), "200")
+					searchList += db.String()
+					// searchList += "\nadd_button_with_icon|search_" + strconv.Itoa(int(itemID)) + "|`$" + items.Items[i].Name + "`2(" + strconv.Itoa(int(itemID)) + "`0)|staticYellowFrame|" + strconv.Itoa(int(itemID)) + "||"
 				}
 			}
-			if searchList == "" {
-				packet_(peer, "action|log\nmsg| `4Oops: `oThere is no items found starting with `w"+targetSifinds+"`o.", "")
+			if searchList != "" {
+				db := DialogBuilder.NewDialogBuilder("0")
+				db.AddLabelIcon(true, 6016, "``Search results for `w\""+targetSifinds+"\"").AddSpacer(false).EmbedData(true, "search", targetSifinds).EndDialog("search_option", "Cancel", "Got It!").AddSpacer(true).AddQuickExit()
+				fn.OnSendDialog(peer, db.String(), 0)
+				// fn.OnSendDialog(peer, "add_label_with_icon|big|`wSearch results for ``\""+targetSifinds+"\"``|left|6016|\nadd_spacer|small|\nembed_data|search|"+targetSifinds+"\nend_dialog|search_option|Cancel|\nadd_spacer|big|\n"+searchList+"add_quick_exit|\n", 0)
+				return
+			} else {
+				fn.LogMsg(peer, "`4Oops: `oThere is no items found starting with `w%s`o.", targetSifinds)
 				return
 			}
-			p := gamepacket.NewPacket()
-			p.Insert("OnDialogRequest")
-			p.Insert("add_label_with_icon|big|`wSearch results for ``\"" + targetSifinds + "\"``|left|6016|\nadd_spacer|small|\nembed_data|search|" + targetSifinds + "\nend_dialog|search_option|Cancel|\nadd_spacer|big|\n" + searchList + "add_quick_exit|\n")
-			p.CreatePacket(peer)
-		}*/
+		}
 	} else if strings.HasPrefix(lowerCmd, "/sb") {
 		parsedSb := strings.Fields(lowerCmd)
 		if len(parsedSb) != 2 {
@@ -268,8 +256,13 @@ func OnPlayerExitWorld(peer enet.Peer) {
 		if err != nil {
 			log.Error("SaveWorld: world is nil")
 		}
+		PInfo(peer).CurrentWorld = ""
+		err = SavePlayer(PInfo(peer))
+		if err != nil {
+			log.Error("SavePlayer: world is nil")
+		}
 	}
-	PInfo(peer).CurrentWorld = ""
+
 	fn.UpdateInventory(peer)
 	fn.SendWorldMenu(peer)
 }
@@ -356,17 +349,23 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 				fn.UpdateInventory(peer)
 				worldName := strings.ToUpper(strings.Split(text[25:], "\n")[0])
 				fn.LogMsg(peer, "Sending you to world (%s)", worldName)
-				OnEnterGameWorld(peer, host, worldName)
+				OnEnterGameWorld(peer, host, worldName, items)
 				break
 			}
 		case "input":
 			{
 				text := strings.Split(text[19:], "\n")[0]
 				if text[0] == '/' {
-					OnCommand(peer, host, text, true)
+					OnCommand(peer, host, text, true, items)
 				} else {
 					OnChatInput(peer, host, text)
 				}
+				break
+			}
+		case "dialog_return":
+			{
+				text := strings.Split(text[20:], "\n")[0]
+				fn.DialogHandler(peer, text, items)
 				break
 			}
 		case "quit_to_exit":
@@ -507,87 +506,9 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 	}
 }
 
-func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
-	/*log.Info("[OnEnterGameWorld] Player Data: %v", PInfo(peer))
-	if NotSafePlayer(peer) {
-		fn.LogMsg(peer, "`4Invalid Player Data!``")
-		return nil
-	}
-	world := worlds.Worlds[name]
-	if world == nil {
-		/*var err error
-		world, err = worlds.LoadWorld(name)
-		if err != nil {
-		worlds.Worlds[name] = worlds.GenerateWorld(name, 100, 60)
-		//codedWorld := AutoTagMsgpackStruct(world)
-		world = worlds.Worlds[name]
-		//worlds.UpsertWorld(name)
-		log.Error("Worlds with name: %s is not found in our database!", name)
-		//}
-	}
-	/*nameLen := len(world.Name)
-	totalPacketLen := 78 + nameLen + len(world.Tiles) + 24 + (8*len(world.Tiles) + (0 * 16))
-	worldPacket := make([]byte, totalPacketLen)
-	worldPacket[0] = 4  //game message
-	worldPacket[4] = 4  //world packet type
-	worldPacket[16] = 8 //char state
-	worldPacket[66] = byte(len(world.Name))
-	copy(worldPacket[68:], []byte(world.Name))
-
-	worldPacket[nameLen+68] = byte(world.SizeX)
-	worldPacket[nameLen+72] = byte(world.SizeY)
-	binary.LittleEndian.PutUint16(worldPacket[nameLen+76:], uint16(world.TotalTiles))
-	extraDataPos := 85 + nameLen
-
-	for i := 0; i < int(world.TotalTiles); i++ {
-		// log.Info("Loaded Tiles: %v", world.Tiles[i])
-		binary.LittleEndian.PutUint16(worldPacket[extraDataPos:], uint16(world.Tiles[i].Fg))
-		binary.LittleEndian.PutUint16(worldPacket[extraDataPos+2:], uint16(world.Tiles[i].Bg))
-		binary.LittleEndian.PutUint32(worldPacket[extraDataPos+4:], uint32(world.Tiles[i].Flags))
-
-		switch world.Tiles[i].Fg {
-		case 6:
-			{
-				worldPacket[extraDataPos+8] = 1 //block types
-				binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(len(world.Tiles[i].Label)))
-				copy(worldPacket[extraDataPos+11:], []byte(world.Tiles[i].Label))
-
-				SpawnX = (i % int(world.SizeX)) * 32
-				SpawnY = (i / int(world.SizeX)) * 32
-				extraDataPos += 4 + len(world.Tiles[i].Label)
-			}
-		case 7188:
-			{
-				/*worldPacket[extraDataPos+8] = 3 //block types
-				binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(len(world.Tiles[i].Label)))
-				copy(worldPacket[extraDataPos+11:], []byte(world.Tiles[i].Label))
-
-				//SpawnX = (i % int(world.SizeX)) * 32
-				// SpawnY = (i / int(world.SizeX)) * 32
-				extraDataPos += 4 + len(world.Tiles[i].Label)
-				worldPacket[extraDataPos+8] = 3
-				//musicBpm := 100
-				binary.LittleEndian.PutUint16(worldPacket[extraDataPos+2:], uint16(PInfo(peer).UserID))
-				/*binary.LittleEndian.PutUint16(worldPacket[extraDataPos+18:], uint16(musicBpm))
-				extraDataPos += 4
-
-			}
-		default:
-			{
-				break
-			}
-		}
-
-		extraDataPos += 8
-	}
-
-	packet, err := enet.NewPacket(worldPacket, enet.PacketFlagReliable)
-	if err != nil {
-		panic(err)
-	}
-	peer.SendPacket(packet, 0)*/
+func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string, items *items.ItemInfo) {
 	fn.OnSetFreezeState(peer, true, 0)
-	fn.UpdateWorld(peer, name)
+	fn.UpdateWorld(peer, name, items)
 	world := worlds.Worlds[name]
 
 	fn.SetRespawnPos(peer, int(world.PosDoor), 0)
@@ -608,6 +529,7 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 	fn.PlayMsg(peer, 0, "audio/door_open.wav")
 	fn.ConsoleMsg(peer, 0, "`5<`w%s ``entered, `w%d`` others here`5>", GetPlayerName(peer), world.PlayersIn)
 	fn.TalkBubble(peer, PInfo(peer).NetID, 300, true, "`5<`w%s ``entered, `w%d`` others here`5>", GetPlayerName(peer), world.PlayersIn)
+	fn.UpdateClothes(0, peer, peer)
 	for _, currentPeer := range GetPeers(PlayerMap) {
 		if PInfo(currentPeer).CurrentWorld == PInfo(peer).CurrentWorld && PInfo(currentPeer).PeerID != PInfo(peer).PeerID {
 			// Spawn Another Player Avatar to You
@@ -616,8 +538,8 @@ func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string) {
 			fn.TalkBubble(currentPeer, PInfo(peer).NetID, 300, true, "`5<`w%s ``entered, `w%d`` others here`5>", GetPlayerName(peer), world.PlayersIn)
 			fn.OnSpawn(currentPeer, int16(PInfo(peer).NetID), PInfo(peer).PeerID, int32(PInfo(peer).SpawnX), int32(PInfo(peer).SpawnY), GetPlayerName(peer), PInfo(peer).Country, false, true, true, false)
 			fn.OnSpawn(peer, int16(PInfo(currentPeer).NetID), PInfo(currentPeer).PeerID, int32(PInfo(currentPeer).PosX), int32(PInfo(currentPeer).PosY), GetPlayerName(currentPeer), PInfo(currentPeer).Country, false, true, true, false)
-			fn.UpdateClothes(0, peer, currentPeer)
 			fn.UpdateClothes(0, currentPeer, peer)
+			fn.UpdateClothes(0, peer, currentPeer)
 		}
 	}
 	fn.ListActiveWorld[world.Name] = int(world.PlayersIn)

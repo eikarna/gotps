@@ -9,12 +9,20 @@ import (
 	"github.com/codecat/go-libs/log"
 )
 
+type Drop struct {
+	ID  int16
+	Qty uint8
+}
+
 type Tiles struct {
 	Fg      int16
 	Bg      int16
 	Flags   int32
 	Label   string
 	IntData int32
+	Planted int32
+	Fruit   int16
+	Drops   []Drop
 }
 
 type Admins struct {
@@ -647,7 +655,6 @@ func SaveWorld(world *World) error {
 		return err
 	}
 	defer f.Close()
-
 	encoder := gob.NewEncoder(f)
 	err = encoder.Encode(world)
 	if err != nil {
