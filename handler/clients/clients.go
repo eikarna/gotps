@@ -12,13 +12,15 @@ import (
 	DialogBuilder "github.com/eikarna/gotps/builder"
 	tankpacket "github.com/eikarna/gotps/handler/TankPacket"
 	fn "github.com/eikarna/gotps/handler/functions"
-	items "github.com/eikarna/gotps/handler/items"
+	// items "github.com/eikarna/gotps/handler/items"
+	"github.com/eikarna/GoDat/Components/Decoder"
+	"github.com/eikarna/GoDat/Components/Enums"
 	pkt "github.com/eikarna/gotps/handler/packet"
 	. "github.com/eikarna/gotps/handler/players"
 	"github.com/eikarna/gotps/handler/worlds"
 )
 
-func OnTileUpdate(packet enet.Packet, peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World, items *items.ItemInfo) {
+func OnTileUpdate(packet enet.Packet, peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World, items *Enums.ItemInfo) {
 	itemMeta := items.Items[Tank.Value]
 	switch worlds.ActionType(itemMeta.ActionType) {
 	case worlds.Fist:
@@ -80,7 +82,7 @@ func OnTileUpdate(packet enet.Packet, peer enet.Peer, Tank *tankpacket.TankPacke
 	}
 }
 
-func OnCommand(peer enet.Peer, host enet.Host, cmd string, isCommand bool, items *items.ItemInfo) {
+func OnCommand(peer enet.Peer, host enet.Host, cmd string, isCommand bool, items *Enums.ItemInfo) {
 	lowerCmd := strings.ToLower(cmd)
 	lowerCmd = strings.TrimRight(lowerCmd, "\x00") // Trim any null character
 	if isCommand {
@@ -195,7 +197,7 @@ func OnChatInput(peer enet.Peer, host enet.Host, text string) {
 	}
 }
 
-func OnPlayerMove(peer enet.Peer, packet enet.Packet, item *items.ItemInfo) {
+func OnPlayerMove(peer enet.Peer, packet enet.Packet, item *Enums.ItemInfo) {
 	movePacket := packet.GetData()
 	PInfo(peer).RotatedLeft = (binary.LittleEndian.Uint32(movePacket[16:20]) & 0x10) != 0
 	PInfo(peer).PosX = math.Float32frombits(binary.LittleEndian.Uint32(movePacket[28:32]))
@@ -267,7 +269,7 @@ func OnPlayerExitWorld(peer enet.Peer) {
 	fn.SendWorldMenu(peer)
 }
 
-func OnConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo) {
+func OnConnect(peer enet.Peer, host enet.Host, items *Enums.ItemInfo) {
 	log.Info("New Client Connected %s", peer.GetAddress().String())
 	/*PlayerMap[peer] = &Player{
 		IpAddress: peer.GetAddress().String(),
@@ -282,7 +284,7 @@ func OnConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo) {
 	pkt.SendPacket(peer, 1, "") //hello response
 }
 
-func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo) {
+func OnDisConnect(peer enet.Peer, host enet.Host, items *Enums.ItemInfo) {
 	log.Info("New Client Disconnected %s", peer.GetAddress().String())
 	if NotSafePlayer(peer) {
 		return
@@ -317,8 +319,8 @@ func OnDisConnect(peer enet.Peer, host enet.Host, items *items.ItemInfo) {
 	PInfo(peer).IsOnline = false
 }
 
-func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.ItemInfo) {
-	//g.Info("TextPacket: %s", text)
+func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *Enums.ItemInfo) {
+	log.Info("TextPacket: %s", text)
 	if strings.Contains(text, "requestedName|") {
 		ParseUserData(text, host, peer, fn.ConsoleMsg)
 		fn.OnSuperMain(peer, items.GetItemHash())
@@ -381,7 +383,13 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 		case "refresh_item_data":
 			{
 				fn.LogMsg(peer, "One moment, Updating item data...")
-				packet, err := enet.NewPacket(items.FileBufferPacket, enet.PacketFlagReliable)
+				buffer, err := Decoder.FileBuffer("items.dat")
+				if err != nil {
+					fn.LogMsg(peer, "502 Internal Server Error! :(")
+					peer.DisconnectLater(0)
+					return
+				}
+				packet, err := enet.NewPacket(buffer, enet.PacketFlagReliable)
 				if err != nil {
 					panic(err)
 				}
@@ -428,7 +436,7 @@ func OnTextPacket(peer enet.Peer, host enet.Host, text string, items *items.Item
 	}
 }
 
-func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *items.ItemInfo) {
+func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *Enums.ItemInfo) {
 	if NotSafePlayer(peer) {
 		return
 	}
@@ -506,7 +514,7 @@ func OnTankPacket(peer enet.Peer, host enet.Host, packet enet.Packet, items *ite
 	}
 }
 
-func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string, items *items.ItemInfo) {
+func OnEnterGameWorld(peer enet.Peer, host enet.Host, name string, items *Enums.ItemInfo) {
 	fn.OnSetFreezeState(peer, true, 0)
 	fn.UpdateWorld(peer, name, items)
 	world := worlds.Worlds[name]

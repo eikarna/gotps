@@ -301,7 +301,7 @@ const (
 
 var Worlds = make(map[string]*World)
 
-func ActionType(value int16) ActionTypes {
+func ActionType(value uint8) ActionTypes {
 	switch value {
 	case 0:
 		return Fist
@@ -583,7 +583,7 @@ func ActionType(value int16) ActionTypes {
 		return FriendsEntrance
 	default:
 		// Return a default value or handle the error accordingly
-		return -1 // For simplicity, return an invalid value
+		return 0 // For simplicity, return an invalid value
 	}
 }
 

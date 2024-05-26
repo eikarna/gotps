@@ -7,7 +7,8 @@ import (
 	"github.com/codecat/go-libs/log"
 	enet "github.com/eikarna/gotops"
 	clients "github.com/eikarna/gotps/handler/clients"
-	items "github.com/eikarna/gotps/handler/items"
+	// items "github.com/eikarna/gotps/handler/items"
+	"github.com/eikarna/GoDat/Components/Decoder"
 	pkt "github.com/eikarna/gotps/handler/packet"
 
 	// "github.com/vmihailenco/msgpack/v5"
@@ -37,7 +38,7 @@ func main() {
 	host.CompressWithRangeCoder()
 	log.Warn("Loading \"items.dat\"..")
 	startTimestamp := time.Now()
-	itemInfo, err := items.SerializeItemsDat("items.dat", startTimestamp)
+	itemInfo, err := Decoder.Decode("items.dat", startTimestamp)
 	if err != nil {
 		log.Error("Itemsdat: %s", err.Error())
 	}

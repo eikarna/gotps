@@ -12,7 +12,8 @@ import (
 	enet "github.com/eikarna/gotops"
 	DialogBuilder "github.com/eikarna/gotps/builder"
 	tankpacket "github.com/eikarna/gotps/handler/TankPacket"
-	items "github.com/eikarna/gotps/handler/items"
+	// items "github.com/eikarna/gotps/handler/items"
+	"github.com/eikarna/GoDat/Components/Enums"
 	pkt "github.com/eikarna/gotps/handler/packet"
 	player "github.com/eikarna/gotps/handler/players"
 	"github.com/eikarna/gotps/handler/utils"
@@ -67,7 +68,7 @@ func ModifyInventory(peer enet.Peer, itemId int, count int, pl *player.Player) {
 	pl, ReducePack, ReducedPacket, Packet = nil, nil, nil, nil
 }
 
-func OnWrenchTile(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World, items *items.ItemInfo) {
+func OnWrenchTile(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World, items *Enums.ItemInfo) {
 	Coords := Tank.PunchX + (Tank.PunchY * uint32(world.SizeX))
 	block := world.Tiles[Coords].Fg
 	if block == 0 {
@@ -91,7 +92,7 @@ func OnWrenchTile(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.Wor
 	}
 }
 
-func DialogHandler(peer enet.Peer, text string, items *items.ItemInfo) {
+func DialogHandler(peer enet.Peer, text string, items *Enums.ItemInfo) {
 	log.Info("Dialog Name: %s", text)
 	lines := strings.Split(text, "\n")
 	if len(lines) < 3 || len(lines) > 10 {
@@ -142,7 +143,7 @@ func DialogHandler(peer enet.Peer, text string, items *items.ItemInfo) {
 	}
 }
 
-func AddTile(peer enet.Peer, Tank *tankpacket.TankPacket, item *items.ItemInfo) {
+func AddTile(peer enet.Peer, Tank *tankpacket.TankPacket, item *Enums.ItemInfo) {
 	Coords := Tank.PunchX + (Tank.PunchY * uint32(worlds.Worlds[player.PInfo(peer).CurrentWorld].SizeX))
 	PlacePack := &tankpacket.TankPacket{
 		PacketType:     3,
@@ -377,7 +378,7 @@ func PunchLoop(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World)
 	}*/
 }
 
-func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World, items *items.ItemInfo) {
+func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World, items *Enums.ItemInfo) {
 	Coords := Tank.PunchX + (Tank.PunchY * uint32(world.SizeX))
 	//ConsoleMsg(peer, 0, "PunchX: %d, PunchY: %d, TotalXY: %d", Tank.PunchX, Tank.PunchY, Coords)
 	if world.Tiles[Coords].Fg == 6 || world.Tiles[Coords].Fg == 8 {
@@ -429,7 +430,7 @@ func OnPunch(peer enet.Peer, Tank *tankpacket.TankPacket, world *worlds.World, i
 	Tank, bbb, aaa, world = nil, nil, nil, nil
 }
 
-func Plant(peer enet.Peer, tank *tankpacket.TankPacket, world *worlds.World, items *items.ItemInfo, coords uint32) {
+func Plant(peer enet.Peer, tank *tankpacket.TankPacket, world *worlds.World, items *Enums.ItemInfo, coords uint32) {
 	if items.Items[world.Tiles[coords].Fg].Rarity == 999 {
 		world.Tiles[coords].Fruit = 1
 	} else {
@@ -523,7 +524,7 @@ func SetHasGrowID(peer enet.Peer) {
 	variant.Send(peer)
 }
 
-func UpdateWorld(peer enet.Peer, name string, items *items.ItemInfo) {
+func UpdateWorld(peer enet.Peer, name string, items *Enums.ItemInfo) {
 	if player.NotSafePlayer(peer) {
 		LogMsg(peer, "`4Invalid Player Data!``")
 		return
@@ -566,29 +567,29 @@ func UpdateWorld(peer enet.Peer, name string, items *items.ItemInfo) {
 				extraDataPos += 4 + len(wi.Tiles[i].Label)
 				break
 			}
-		case worlds.Seed:
-			{
-				var value int32 = wi.Tiles[i].Flags | 0x100000
+		/*case worlds.Seed:
+		{
+			var value int32 = wi.Tiles[i].Flags | 0x100000
 
-				binary.LittleEndian.PutUint32(worldPacket[extraDataPos+4:], uint32(value))
+			binary.LittleEndian.PutUint32(worldPacket[extraDataPos+4:], uint32(value))
 
-				worldPacket[extraDataPos+8] = 4 // block types
-				now := time.Now().Unix()
-				// Calculate the value to be set at blc + 9
-				countdown := int32(now) - wi.Tiles[i].Planted
-				if countdown > items.Items[wi.Tiles[i].Fg].GrowTime {
-					countdown = items.Items[wi.Tiles[i].Fg].GrowTime
-				}
-
-				// Pointer arithmetic: blc + 9
-
-				binary.LittleEndian.PutUint32(worldPacket[extraDataPos+9:], uint32(countdown))
-
-				// Pointer arithmetic: blc + 13
-				binary.LittleEndian.PutUint16(worldPacket[extraDataPos+13:], uint16(wi.Tiles[i].Fruit))
-				extraDataPos += 3
-				break
+			worldPacket[extraDataPos+8] = 4 // block types
+			now := time.Now().Unix()
+			// Calculate the value to be set at blc + 9
+			countdown := int32(now) - wi.Tiles[i].Planted
+			if countdown > items.Items[wi.Tiles[i].Fg].GrowTime {
+				countdown = items.Items[wi.Tiles[i].Fg].GrowTime
 			}
+
+			// Pointer arithmetic: blc + 9
+
+			binary.LittleEndian.PutUint32(worldPacket[extraDataPos+9:], uint32(countdown))
+
+			// Pointer arithmetic: blc + 13
+			binary.LittleEndian.PutUint16(worldPacket[extraDataPos+13:], uint16(wi.Tiles[i].Fruit))
+			extraDataPos += 3
+			break
+		}*/
 		case worlds.Lock:
 			{
 				worldPacket[extraDataPos+8] = 3
@@ -597,69 +598,69 @@ func UpdateWorld(peer enet.Peer, name string, items *items.ItemInfo) {
 				worldPacket[extraDataPos+14] = 0
 				binary.LittleEndian.PutUint32(worldPacket[extraDataPos+18:], 0)
 				binary.LittleEndian.PutUint32(worldPacket[extraDataPos+22:], 0)
-				extraDataPos += 5
+				extraDataPos += 26
 				break
 			}
-		case worlds.WeatherMachine:
-			{
-				switch block {
-				case 3694:
-					{
-						worldPacket[extraDataPos+8] = 40 //block types
-						if block != 0 {
-							binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(block))
-						} else {
-							binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], 14)
-						}
+			/*case worlds.WeatherMachine:
+				{
+					switch block {
+					case 3694:
+						{
+							worldPacket[extraDataPos+8] = 40 //block types
+							if block != 0 {
+								binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(block))
+							} else {
+								binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], 14)
+							}
 
-					}
-				case 5000:
-					{
-						worldPacket[extraDataPos+8] = 40 //block types
-						if block != 0 {
-							binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(block))
-						} else {
-							binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], 14)
 						}
+					case 5000:
+						{
+							worldPacket[extraDataPos+8] = 40 //block types
+							if block != 0 {
+								binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(block))
+							} else {
+								binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], 14)
+							}
 
-					}
-				case 3832:
-					{
-						worldPacket[extraDataPos+8] = 49 //block types
-						if block != 0 {
-							binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(block))
-						} else {
-							binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], 2)
 						}
-						break
+					case 3832:
+						{
+							worldPacket[extraDataPos+8] = 49 //block types
+							if block != 0 {
+								binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(block))
+							} else {
+								binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], 2)
+							}
+							break
+						}
+					default:
+						{
+							worldPacket[extraDataPos+8] = 5 //block types
+							extraDataPos += 1
+							break
+						}
 					}
-				default:
-					{
-						worldPacket[extraDataPos+8] = 5 //block types
-						extraDataPos += 1
-						break
-					}
+					break
 				}
-				break
-			}
-		case worlds.Crystal:
-			{
-				worldPacket[extraDataPos+8] = 6 //block types
-				extraDataPos += 4
-				break
-			}
-		case worlds.Sign:
-			{
-				worldPacket[extraDataPos+8] = 2 //block types
-				binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(len(wi.Tiles[i].Label)))
-				copy(worldPacket[extraDataPos+11:], []byte(wi.Tiles[i].Label))
-				extraDataPos += 4 + len(wi.Tiles[i].Label)
-				break
-			}
-		default:
-			{
-				break
-			}
+			case worlds.Crystal:
+				{
+					worldPacket[extraDataPos+8] = 6 //block types
+					extraDataPos += 4
+					break
+				}
+			case worlds.Sign:
+				{
+					worldPacket[extraDataPos+8] = 2 //block types
+					binary.LittleEndian.PutUint16(worldPacket[extraDataPos+9:], uint16(len(wi.Tiles[i].Label)))
+					copy(worldPacket[extraDataPos+11:], []byte(wi.Tiles[i].Label))
+					extraDataPos += 4 + len(wi.Tiles[i].Label)
+					break
+				}
+			default:
+				{
+					break
+				}*/
 		}
 
 		extraDataPos += 8
@@ -748,15 +749,15 @@ func TalkBubble(peer enet.Peer, netID uint32, delay int, isOverlay bool, a ...in
 	variant.Send(peer)
 }
 
-func OnSuperMain(peer enet.Peer, itemHash uint32) {
+func OnSuperMain(peer enet.Peer, itemHash int32) {
 
 	variant := variant.NewVariant(0, -1)
 	variant.InsertString("OnSuperMainStartAcceptLogonHrdxs47254722215a")
-	variant.InsertUnsignedInt(itemHash)
+	variant.InsertInt(int(itemHash))
 	variant.InsertString("www.growtopia1.com")
 	variant.InsertString("cache/")
 	variant.InsertString("cc.cz.madkite.freedom org.aqua.gg idv.aqua.bulldog com.cih.gamecih2 com.cih.gamecih com.cih.game_cih cn.maocai.gamekiller com.gmd.speedtime org.dax.attack com.x0.strai.frep com.x0.strai.free org.cheatengine.cegui org.sbtools.gamehack com.skgames.traffikrider org.sbtoods.gamehaca com.skype.ralder org.cheatengine.cegui.xx.multi1458919170111 com.prohiro.macro me.autotouch.autotouch com.cygery.repetitouch.free com.cygery.repetitouch.pro com.proziro.zacro com.slash.gamebuster")
-	variant.InsertString("proto=207|choosemusic=audio/mp3/about_theme.mp3|active_holiday=6|wing_week_day=0|ubi_week_day=2|server_tick=123665344|clash_active=0|drop_lavacheck_faster=1|isPayingUser=2|usingStoreNavigation=1|enableInventoryTab=1|bigBackpack=1|m_clientBits=0|eventButtons={\"EventButtonData\":[{\"Components\":[{\"Enabled\":true,\"Id\":\"Overlay\",\"Parameters\":\"target_child_entity_name:overlay_layer;var_name:alpha;target:0;interpolation:1;on_finish:1;duration_ms:1000;delayBeforeStartMS:1000\",\"Type\":\"InterpolateComponent\"}],\"DialogName\":\"openLnySparksPopup\",\"IsActive\":false,\"Name\":\"LnyButton\",\"Priority\":1,\"Text\":\"0/5\",\"TextOffset\":\"0.01,0.2\",\"Texture\":\"interface/large/event_button3.rttex\",\"TextureCoordinates\":\"0,2\"},{\"Components\":[{\"Enabled\":true,\"Parameters\":\"\",\"Type\":\"RenderDailyChallengeComponent\"}],\"DialogName\":\"dailychallengemenu\",\"IsActive\":false,\"Name\":\"DailyChallenge\",\"Priority\":2},{\"Components\":[{\"Enabled\":false,\"Id\":\"Overlay\",\"Parameters\":\"target_child_entity_name:overlay_layer;var_name:alpha;target:0;interpolation:1;on_finish:1;duration_ms:1000;delayBeforeStartMS:1000\",\"Type\":\"InterpolateComponent\"}],\"DialogName\":\"openStPatrickPiggyBank\",\"IsActive\":false,\"Name\":\"StPatrickPBButton\",\"Priority\":1,\"Text\":\"0/0\",\"TextOffset\":\"0.00,0.05\",\"Texture\":\"interface/large/event_button4.rttex\",\"TextureCoordinates\":\"0,0\"},{\"DialogName\":\"show_bingo_ui\",\"IsActive\":false,\"Name\":\"Bingo_Button\",\"Priority\":1,\"Texture\":\"interface/large/event_button4.rttex\"}]}")
+	variant.InsertString("proto=207|choosemusic=audio/mp3/sakitrasanya.mp3|active_holiday=6|wing_week_day=0|ubi_week_day=2|server_tick=123665344|clash_active=0|drop_lavacheck_faster=1|isPayingUser=2|usingStoreNavigation=1|enableInventoryTab=1|bigBackpack=1|m_clientBits=0|eventButtons={\"EventButtonData\":[{\"Components\":[{\"Enabled\":true,\"Id\":\"Overlay\",\"Parameters\":\"target_child_entity_name:overlay_layer;var_name:alpha;target:0;interpolation:1;on_finish:1;duration_ms:1000;delayBeforeStartMS:1000\",\"Type\":\"InterpolateComponent\"}],\"DialogName\":\"openLnySparksPopup\",\"IsActive\":false,\"Name\":\"LnyButton\",\"Priority\":1,\"Text\":\"0/5\",\"TextOffset\":\"0.01,0.2\",\"Texture\":\"interface/large/event_button3.rttex\",\"TextureCoordinates\":\"0,2\"},{\"Components\":[{\"Enabled\":true,\"Parameters\":\"\",\"Type\":\"RenderDailyChallengeComponent\"}],\"DialogName\":\"dailychallengemenu\",\"IsActive\":false,\"Name\":\"DailyChallenge\",\"Priority\":2},{\"Components\":[{\"Enabled\":false,\"Id\":\"Overlay\",\"Parameters\":\"target_child_entity_name:overlay_layer;var_name:alpha;target:0;interpolation:1;on_finish:1;duration_ms:1000;delayBeforeStartMS:1000\",\"Type\":\"InterpolateComponent\"}],\"DialogName\":\"openStPatrickPiggyBank\",\"IsActive\":false,\"Name\":\"StPatrickPBButton\",\"Priority\":1,\"Text\":\"0/0\",\"TextOffset\":\"0.00,0.05\",\"Texture\":\"interface/large/event_button4.rttex\",\"TextureCoordinates\":\"0,0\"},{\"DialogName\":\"show_bingo_ui\",\"IsActive\":false,\"Name\":\"Bingo_Button\",\"Priority\":1,\"Texture\":\"interface/large/event_button4.rttex\"}]}")
 	//p.Insert("654171113"); //tribute_data
 	variant.Send(peer)
 }
