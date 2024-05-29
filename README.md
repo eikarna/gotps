@@ -12,7 +12,7 @@ First Growtopia Private Server using Go. Based on [eikarna/gotops](https://githu
 
 ## TODO:
 - [X] RequestedName Handler
-- [ ] GrowID Handler
+- [X] GrowID Handler
 - [X] World Handler
 - [X] SuperMain Handler
 - [X] Inventory Handler
@@ -22,8 +22,8 @@ First Growtopia Private Server using Go. Based on [eikarna/gotops](https://githu
 - [ ] Currency Data Structures
 - [X] Inventory Data Structures
 - [ ] Interactive Blocks
-- [ ] Auto Save System
-- [ ] Many Features
+- [X] Auto Save System
+- [ ] Basic Features GTPS
 
 # Snapshot / Preview
 <a href="https://telegra.ph/file/31cb64112ad06edcddd90.jpg">![Snapshot 1](https://telegra.ph/file/31cb64112ad06edcddd90.jpg)</a>
