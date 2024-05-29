@@ -29,10 +29,11 @@ First Growtopia Private Server using Go. Based on [eikarna/gotops](https://githu
 <a href="https://telegra.ph/file/31cb64112ad06edcddd90.jpg">![Snapshot 1](https://telegra.ph/file/31cb64112ad06edcddd90.jpg)</a>
 <a href="https://telegra.ph/file/b311c56385fd5e5a2c78e.png">![Snapshot 2](https://telegra.ph/file/b311c56385fd5e5a2c78e.png)</a>
 <a href="https://telegra.ph/file/05196db9e0b050bf00a83.png">![Snapshot 3](https://telegra.ph/file/05196db9e0b050bf00a83.png)</a>
+### Memory Usage
 <a href="https://telegra.ph/file/16615a529c2d959a3b41b.jpg">![Snapshot 4](https://telegra.ph/file/16615a529c2d959a3b41b.jpg)</a>
 
 ### Feel free to contribute!
 
 # Special Thanks
 - TeamNevolution
-- Kipas
+- [KipasGTS](https://github.com/KIPASGTS)
