@@ -1,0 +1,6 @@
+database/players/*
+database/worlds/*
+*.mod
+*.sum
+items.*
+*.zip
