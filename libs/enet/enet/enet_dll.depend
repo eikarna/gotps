@@ -1,0 +1,89 @@
+# depslib dependency file v1.0
+1716090964 source:c:\users\adnan\downloads\gotops\enet\callbacks.c
+	"enet/enet.h"
+
+1716090964 c:\users\adnan\downloads\gotops\enet\include\enet\enet.h
+	<stdlib.h>
+	"enet/win32.h"
+	"enet/unix.h"
+	"enet/types.h"
+	"enet/protocol.h"
+	"enet/list.h"
+	"enet/callbacks.h"
+
+1716090964 c:\users\adnan\downloads\gotops\enet\include\enet\win32.h
+	<stdlib.h>
+	<winsock2.h>
+
+1716090964 c:\users\adnan\downloads\gotops\enet\include\enet\unix.h
+	<stdlib.h>
+	<sys/time.h>
+	<sys/types.h>
+	<sys/socket.h>
+	<arpa/inet.h>
+	<netinet/in.h>
+	<unistd.h>
+
+1716090964 c:\users\adnan\downloads\gotops\enet\include\enet\types.h
+
+1716090964 c:\users\adnan\downloads\gotops\enet\include\enet\protocol.h
+	"enet/types.h"
+
+1716090964 c:\users\adnan\downloads\gotops\enet\include\enet\list.h
+	<stdlib.h>
+
+1716090964 c:\users\adnan\downloads\gotops\enet\include\enet\callbacks.h
+	<stdlib.h>
+
+1716090964 source:c:\users\adnan\downloads\gotops\enet\compress.c
+	<string.h>
+	"enet/enet.h"
+
+1716090964 source:c:\users\adnan\downloads\gotops\enet\host.c
+	<string.h>
+	"enet/enet.h"
+
+1716090964 source:c:\users\adnan\downloads\gotops\enet\list.c
+	"enet/enet.h"
+
+1716090964 source:c:\users\adnan\downloads\gotops\enet\packet.c
+	<string.h>
+	"enet/enet.h"
+
+1716090964 source:c:\users\adnan\downloads\gotops\enet\peer.c
+	<string.h>
+	"enet/enet.h"
+
+1716090964 source:c:\users\adnan\downloads\gotops\enet\protocol.c
+	<stdio.h>
+	<string.h>
+	"enet/utility.h"
+	"enet/time.h"
+	"enet/enet.h"
+
+1716090964 c:\users\adnan\downloads\gotops\enet\include\enet\utility.h
+
+1716090964 c:\users\adnan\downloads\gotops\enet\include\enet\time.h
+
+1716090964 source:c:\users\adnan\downloads\gotops\enet\unix.c
+	<sys/types.h>
+	<sys/socket.h>
+	<sys/ioctl.h>
+	<sys/time.h>
+	<netinet/tcp.h>
+	<netdb.h>
+	<unistd.h>
+	<string.h>
+	<errno.h>
+	<time.h>
+	"enet/enet.h"
+	<fcntl.h>
+	<poll.h>
+
+1716091328 source:c:\users\adnan\downloads\gotops\enet\win32.c
+	"enet/enet.h"
+	<windows.h>
+	<mmsystem.h>
+	<ws2ipdef.h>
+	<Ws2tcpip.h>
+

@@ -12,6 +12,7 @@ import (
 	DialogBuilder "github.com/eikarna/gotps/builder"
 	tankpacket "github.com/eikarna/gotps/handler/TankPacket"
 	fn "github.com/eikarna/gotps/handler/functions"
+
 	// items "github.com/eikarna/gotps/handler/items"
 	"github.com/eikarna/GoDat/Components/Decoder"
 	"github.com/eikarna/GoDat/Components/Enums"
@@ -41,7 +42,6 @@ func OnTileUpdate(packet enet.Packet, peer enet.Peer, Tank *tankpacket.TankPacke
 						PunchY:         Tank.PunchY,
 						CharacterState: Tank.CharacterState,
 						NetID:          PInfo(peer).NetID,
-						Value:          PInfo(peer).UserID,
 					}
 					lockPacket := lockPack.Serialize(56, true)
 					packet, err := enet.NewPacket(lockPacket, enet.PacketFlagReliable)
@@ -169,7 +169,7 @@ func OnCommand(peer enet.Peer, host enet.Host, cmd string, isCommand bool, items
 		memoryUsage := m.Sys / 1024 / 1024
 		fn.ConsoleMsg(peer, 0, "CPU: %d Core(s)\nAlloc: %d MB\nTotalAlloc: %d MB\nSys: %d MB\nNumGC: %d Thread(s)", cpuUsage, m.Alloc/1024/1024, m.TotalAlloc/1024/1024, memoryUsage, m.NumGC)
 		fn.TalkBubble(peer, PInfo(peer).NetID, 100, false, "CPU: %d Core(s)\nAlloc: %d MB\nTotalAlloc: %d MB\nSys: %d MB\nNumGC: %d Thread(s)", cpuUsage, m.Alloc/1024/1024, m.TotalAlloc/1024/1024, memoryUsage, m.NumGC)
-	} else if strings.HasPrefix(lowerCmd, "/dialog") {
+	} else if strings.HasPrefix(lowerCmd, "/test_dialog0") {
 		fn.OnSendDialog(peer, "text_scaling_string|Dirttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt|\nset_default_color|`o\nadd_label_with_icon|big|`wGet a growlandID``|left|206|\nadd_spacer|small|\nadd_textbox|By choosing a `wgrowlandID``, you can use a name and password to logon from any device.Your `wname`` will be shown to other players!|left|\nadd_spacer|small|\nadd_text_input|logon|Name|Akbar Awor|18|\nadd_textbox|Your `wpassword`` must contain `w8 to 18 characters, 1 letter, 1 number`` and `w1 special character: @#!$^&*.,``|left|\nadd_text_input_password|password|Password|Anton Malang 69|18|\nadd_text_input_password|password_verify|Password Verify|Anton Malang 69 Verif|18|\nadd_textbox|Your `wemail`` will only be used for account verification and support. If you enter a fake email, you can't verify your account, recover or change your password.|left|\nadd_text_input|email|Email|Akbar Faisal|64|\nadd_textbox|We will never ask you for your password or email, never share it with anyone!|left|\nend_dialog|growid_apply|Cancel|Get My growlandID!|\n", 0)
 	} else {
 		fn.LogMsg(peer, "`4Unknown command.``  Enter `$/?`` for a list of valid commands.")
