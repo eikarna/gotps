@@ -4,3 +4,4 @@ database/worlds/*
 *.sum
 items.*
 *.zip
+*.exe
